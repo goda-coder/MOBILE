@@ -1,0 +1,49 @@
+name: wallet
+description: "AI-verified mobile wallet for Egypt. Card + Paymob top-ups, KYC with camera, QR pay."
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+  flutter: ">=3.22.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State management
+  flutter_riverpod: ^2.5.1
+
+  # Routing
+  go_router: ^14.2.7
+
+  # HTTP + auth
+  dio: ^5.7.0
+  flutter_secure_storage: ^9.2.2
+
+  # Camera & media (KYC selfie + ID capture + liveness frames)
+  camera: ^0.11.0+2
+  image: ^4.2.0           # JPEG re-encoding for liveness frames
+
+  # QR
+  qr_flutter: ^4.1.0      # generate
+  mobile_scanner: ^5.2.3  # scan (uses MLKit on Android, Vision on iOS)
+
+  # UX
+  google_fonts: ^6.2.1    # Jost + Overpass Mono to match the design system
+  intl: ^0.19.0           # currency / date formatting
+
+  # Misc
+  url_launcher: ^6.3.1    # open Paymob iframe in an in-app browser
+
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  # No bundled assets right now. Add them under `assets/` and reference here
+  # if you ship logos or example KYC samples.
