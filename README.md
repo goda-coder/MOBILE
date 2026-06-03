@@ -257,3 +257,5 @@ If you want mobile-only, delete `../frontend/` — nothing in the backend depend
 | `mobile_scanner` build fails on Android          | Bump `minSdkVersion` to 21 in `android/app/build.gradle`. |
 | `mobile_scanner` build fails on iOS              | Bump platform to `11.0` in `ios/Podfile`, then `cd ios && pod install`. |
 | Fonts look wrong                                 | `google_fonts` downloads on first run; needs internet on first launch. To bundle them, see the package README. |
+#   M O B I L E  
+ 
