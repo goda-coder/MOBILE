@@ -22,3 +22,8 @@ coverage/
 
 # Misc
 .DS_Store
+
+# exclude .env variables
+*.env
+*.env.production
+*.env.development
