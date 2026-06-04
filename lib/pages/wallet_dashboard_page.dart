@@ -23,79 +23,91 @@ class WalletDashboardPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summary = ref.watch(_summaryProvider);
-    final txs     = ref.watch(_txProvider);
-    final auth    = ref.watch(authControllerProvider).value;
-    final email   = auth?.email;
-    final role    = auth?.role;
+    final txs = ref.watch(_txProvider);
+    final auth = ref.watch(authControllerProvider).value;
+    final email = auth?.email;
+    final role = auth?.role;
 
-    return RefreshIndicator(
-      onRefresh: () async {
-        ref.invalidate(_summaryProvider);
-        ref.invalidate(_txProvider);
-        await Future.delayed(const Duration(milliseconds: 250));
-      },
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
+    return SafeArea(
+      child: RefreshIndicator(
+        onRefresh: () async {
+          ref.invalidate(_summaryProvider);
+          ref.invalidate(_txProvider);
+          await Future.delayed(const Duration(milliseconds: 250));
+        },
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('WELCOME BACK',
+                          style: TextStyle(
+                              color: AppColors.ink400,
+                              letterSpacing: 2,
+                              fontSize: 11)),
+                      const SizedBox(height: 2),
+                      Text(email ?? 'there',
+                          style: const TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+                if (summary.hasValue)
+                  StatusPill(summary.value!.kycStatus,
+                      tone: kycTone(summary.value!.kycStatus)),
+              ],
+            ),
+            const SizedBox(height: 20),
+            if (role != null) ...[
+              _RoleDashboardCard(role: role),
+              const SizedBox(height: 20),
+            ],
+
+            // ---- Bento row ----
+            summary.when(
+              data: (s) => _BentoRow(summary: s),
+              loading: () => const _BalanceSkeleton(),
+              error: (e, _) => ErrorCard(
+                  title: 'Could not load balance', message: e.toString()),
+            ),
+
+            const SizedBox(height: 20),
+
+            // ---- Recent activity ----
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('WELCOME BACK',
-                        style: TextStyle(color: AppColors.ink400, letterSpacing: 2, fontSize: 11)),
-                    const SizedBox(height: 2),
-                    Text(email ?? 'there',
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+                    const Text('Recent activity',
+                        style: TextStyle(
+                            fontSize: 17, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 12),
+                    txs.when(
+                      data: (list) => list.isEmpty
+                          ? _Empty(
+                              text:
+                                  'No transactions yet. Send or top up to get started.')
+                          : _TxList(txs: list),
+                      loading: () => const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: Center(
+                            child: CircularProgressIndicator(strokeWidth: 2)),
+                      ),
+                      error: (e, _) => ErrorCard(message: e.toString()),
+                    ),
                   ],
                 ),
               ),
-              if (summary.hasValue)
-                StatusPill(summary.value!.kycStatus, tone: kycTone(summary.value!.kycStatus)),
-            ],
-          ),
-          const SizedBox(height: 20),
-          if (role != null) ...[
-            _RoleDashboardCard(role: role),
-            const SizedBox(height: 20),
-          ],
-
-          // ---- Bento row ----
-          summary.when(
-            data: (s) => _BentoRow(summary: s),
-            loading: () => const _BalanceSkeleton(),
-            error: (e, _) => ErrorCard(title: 'Could not load balance', message: e.toString()),
-          ),
-
-          const SizedBox(height: 20),
-
-          // ---- Recent activity ----
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Recent activity',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 12),
-                  txs.when(
-                    data: (list) => list.isEmpty
-                        ? _Empty(text: 'No transactions yet. Send or top up to get started.')
-                        : _TxList(txs: list),
-                    loading: () => const Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                    ),
-                    error: (e, _) => ErrorCard(message: e.toString()),
-                  ),
-                ],
-              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -117,34 +129,49 @@ class _BentoRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('BALANCE',
-                    style: TextStyle(letterSpacing: 2, color: AppColors.ink400, fontSize: 11)),
+                    style: TextStyle(
+                        letterSpacing: 2,
+                        color: AppColors.ink400,
+                        fontSize: 11)),
                 const SizedBox(height: 6),
                 Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
                   Text(
                     formatAmount(summary.balanceMinor),
-                    style: numTextStyle(fontSize: 40, fontWeight: FontWeight.w300),
+                    style:
+                        numTextStyle(fontSize: 40, fontWeight: FontWeight.w300),
                   ),
                   const SizedBox(width: 8),
                   Padding(
                     padding: const EdgeInsets.only(bottom: 6),
                     child: Text(summary.currency,
-                        style: numTextStyle(fontSize: 16, color: AppColors.ink400)),
+                        style: numTextStyle(
+                            fontSize: 16, color: AppColors.ink400)),
                   ),
                 ]),
                 const SizedBox(height: 16),
                 Wrap(spacing: 8, runSpacing: 8, children: [
-                  AppButton(label: 'Send', icon: Icons.north_east,
+                  AppButton(
+                      label: 'Send',
+                      icon: Icons.north_east,
                       onPressed: () => context.push('/transfer')),
-                  AppButton(label: 'Top up', icon: Icons.add,
+                  AppButton(
+                      label: 'Top up',
+                      icon: Icons.add,
                       variant: AppButtonVariant.ghost,
                       onPressed: () => context.push('/top-up')),
-                  AppButton(label: 'Scan', icon: Icons.qr_code_scanner,
+                  AppButton(
+                      label: 'Scan',
+                      icon: Icons.qr_code_scanner,
                       variant: AppButtonVariant.ghost,
                       onPressed: () => context.push('/scan')),
-                  AppButton(label: 'Support', icon: Icons.chat_bubble,
+                  AppButton(
+                      label: 'Support',
+                      icon: Icons.chat_bubble,
                       variant: AppButtonVariant.ghost,
                       onPressed: () => context.push('/chat')),
-                  AppButton(label: 'Report', icon: Icons.receipt_long,
+                  AppButton(
+                      label: 'Report',
+                      icon: Icons.receipt_long,
                       variant: AppButtonVariant.ghost,
                       onPressed: () => context.push('/report')),
                 ]),
@@ -154,10 +181,12 @@ class _BentoRow extends StatelessWidget {
         ),
         // Soft brand glow
         Positioned(
-          right: -20, top: -20,
+          right: -20,
+          top: -20,
           child: IgnorePointer(
             child: Container(
-              width: 160, height: 160,
+              width: 160,
+              height: 160,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(colors: [
@@ -178,7 +207,8 @@ class _BentoRow extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 44, height: 44,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   color: summary.isKycVerified
                       ? AppColors.success.withValues(alpha: 0.15)
@@ -186,8 +216,12 @@ class _BentoRow extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  summary.isKycVerified ? Icons.verified : Icons.shield_outlined,
-                  color: summary.isKycVerified ? AppColors.success : AppColors.warning,
+                  summary.isKycVerified
+                      ? Icons.verified
+                      : Icons.shield_outlined,
+                  color: summary.isKycVerified
+                      ? AppColors.success
+                      : AppColors.warning,
                 ),
               ),
               const SizedBox(width: 14),
@@ -195,21 +229,28 @@ class _BentoRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(summary.isKycVerified ? 'Verified' : 'Identity not verified',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    Text(
+                        summary.isKycVerified
+                            ? 'Verified'
+                            : 'Identity not verified',
+                        style: const TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 2),
                     Text(
                       summary.isKycVerified
                           ? 'Full features unlocked.'
                           : 'Verify to unlock higher limits.',
-                      style: const TextStyle(color: AppColors.ink400, fontSize: 13),
+                      style: const TextStyle(
+                          color: AppColors.ink400, fontSize: 13),
                     ),
                   ],
                 ),
               ),
               AppButton(
                 label: summary.isKycVerified ? 'View' : 'Verify',
-                variant: summary.isKycVerified ? AppButtonVariant.ghost : AppButtonVariant.primary,
+                variant: summary.isKycVerified
+                    ? AppButtonVariant.ghost
+                    : AppButtonVariant.primary,
                 onPressed: () => context.push('/kyc'),
               ),
             ],
@@ -238,9 +279,12 @@ class _TxList extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: Row(children: [
             Container(
-              width: 36, height: 36,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                color: positive ? AppColors.success.withValues(alpha: 0.1) : AppColors.ink700,
+                color: positive
+                    ? AppColors.success.withValues(alpha: 0.1)
+                    : AppColors.ink700,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
@@ -255,11 +299,13 @@ class _TxList extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(t.description ?? _kindLabel(t.kind),
-                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w500)),
                   const SizedBox(height: 2),
                   Text(formatRelative(t.createdAt),
-                      style: const TextStyle(color: AppColors.ink400, fontSize: 12)),
+                      style: const TextStyle(
+                          color: AppColors.ink400, fontSize: 12)),
                 ],
               ),
             ),
@@ -280,12 +326,12 @@ class _TxList extends StatelessWidget {
       k == TxKind.transferIn || k == TxKind.topup || k == TxKind.refund;
 
   static String _kindLabel(TxKind k) => switch (k) {
-        TxKind.transferIn  => 'Received',
+        TxKind.transferIn => 'Received',
         TxKind.transferOut => 'Sent',
-        TxKind.topup       => 'Top-up',
-        TxKind.refund      => 'Refund',
-        TxKind.fee         => 'Fee',
-        TxKind.unknown     => 'Transaction',
+        TxKind.topup => 'Top-up',
+        TxKind.refund => 'Refund',
+        TxKind.fee => 'Fee',
+        TxKind.unknown => 'Transaction',
       };
 }
 
@@ -296,9 +342,10 @@ class _Empty extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 24),
-      child: Center(child: Text(text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(color: AppColors.ink400, fontSize: 13))),
+      child: Center(
+          child: Text(text,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.ink400, fontSize: 13))),
     );
   }
 }
@@ -324,16 +371,26 @@ class _RoleDashboardCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+          Text(title,
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Text(subtitle, style: const TextStyle(color: AppColors.ink400)),
           const SizedBox(height: 14),
           Row(children: [
             if (role == Role.admin)
-              AppButton(label: 'Review KYC', onPressed: () => context.push('/admin/kyc')),
+              AppButton(
+                  label: 'Review KYC',
+                  onPressed: () => context.push('/admin/kyc')),
             if (role == Role.merchant)
-              AppButton(label: 'Receive', variant: AppButtonVariant.ghost, onPressed: () => context.push('/merchant/qr')),
-            AppButton(label: 'Fingerprint pay', variant: AppButtonVariant.ghost, onPressed: () => context.push('/top-up?method=fingerprint')),
+              AppButton(
+                  label: 'Receive',
+                  variant: AppButtonVariant.ghost,
+                  onPressed: () => context.push('/merchant/qr')),
+            AppButton(
+                label: 'Fingerprint pay',
+                variant: AppButtonVariant.ghost,
+                onPressed: () => context.push('/top-up?method=fingerprint')),
           ]),
         ]),
       ),

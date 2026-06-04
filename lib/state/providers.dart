@@ -42,16 +42,24 @@ final apiClientProvider = Provider<ApiClient>(
 );
 
 // -- Per-domain API wrappers -----------------------------------------
-final authApiProvider     = Provider((ref) => AuthApi(ref.read(apiClientProvider)));
-final walletApiProvider   = Provider((ref) => WalletApi(ref.read(apiClientProvider)));
-final chatApiProvider     = Provider((ref) => ChatApi(ref.read(apiClientProvider)));
-final kycApiProvider      = Provider((ref) => KycApi(ref.read(apiClientProvider)));
-final paymentsApiProvider = Provider((ref) => PaymentsApi(ref.read(apiClientProvider)));
-final adminApiProvider    = Provider((ref) => AdminApi(ref.read(apiClientProvider)));
+final authApiProvider = Provider((ref) => AuthApi(ref.read(apiClientProvider)));
+final walletApiProvider =
+    Provider((ref) => WalletApi(ref.read(apiClientProvider)));
+final chatApiProvider = Provider((ref) => ChatApi(ref.read(apiClientProvider)));
+final kycApiProvider = Provider((ref) => KycApi(ref.read(apiClientProvider)));
+final paymentsApiProvider =
+    Provider((ref) => PaymentsApi(ref.read(apiClientProvider)));
+final adminApiProvider =
+    Provider((ref) => AdminApi(ref.read(apiClientProvider)));
 
 // -- Auth state ------------------------------------------------------
 class AuthState {
-  AuthState({this.accessToken, this.refreshToken, this.role, this.email, this.userId});
+  AuthState(
+      {this.accessToken,
+      this.refreshToken,
+      this.role,
+      this.email,
+      this.userId});
   final String? accessToken;
   final String? refreshToken;
   final Role? role;
@@ -65,11 +73,11 @@ class AuthController extends AsyncNotifier<AuthState> {
   Future<AuthState> build() async {
     final s = await ref.read(tokenStoreProvider).getSession();
     return AuthState(
-      accessToken:  s['access'],
+      accessToken: s['access'],
       refreshToken: s['refresh'],
-      role:    s['role']    == null ? null : parseRole(s['role']!),
-      email:   s['email'],
-      userId:  s['userId'],
+      role: s['role'] == null ? null : parseRole(s['role']!),
+      email: s['email'],
+      userId: s['userId'],
     );
   }
 
@@ -78,12 +86,18 @@ class AuthController extends AsyncNotifier<AuthState> {
     try {
       final r = await ref.read(authApiProvider).login(email, password);
       await ref.read(tokenStoreProvider).setSession(
-        access: r.accessToken, refresh: r.refreshToken,
-        role: r.role.name, email: r.email, userId: r.userId,
-      );
+            access: r.accessToken,
+            refresh: r.refreshToken,
+            role: r.role.name,
+            email: r.email,
+            userId: r.userId,
+          );
       state = AsyncData(AuthState(
-        accessToken: r.accessToken, refreshToken: r.refreshToken,
-        role: r.role, email: r.email, userId: r.userId,
+        accessToken: r.accessToken,
+        refreshToken: r.refreshToken,
+        role: r.role,
+        email: r.email,
+        userId: r.userId,
       ));
     } catch (e, st) {
       state = AsyncError(e, st);
@@ -95,16 +109,22 @@ class AuthController extends AsyncNotifier<AuthState> {
     state = const AsyncLoading();
     try {
       final r = await ref.read(authApiProvider).loginWithFingerprint(
-        fingerprintId: fingerprintId,
-        matched: true,
-      );
+            fingerprintId: fingerprintId,
+            matched: true,
+          );
       await ref.read(tokenStoreProvider).setSession(
-        access: r.accessToken, refresh: r.refreshToken,
-        role: r.role.name, email: r.email, userId: r.userId,
-      );
+            access: r.accessToken,
+            refresh: r.refreshToken,
+            role: r.role.name,
+            email: r.email,
+            userId: r.userId,
+          );
       state = AsyncData(AuthState(
-        accessToken: r.accessToken, refreshToken: r.refreshToken,
-        role: r.role, email: r.email, userId: r.userId,
+        accessToken: r.accessToken,
+        refreshToken: r.refreshToken,
+        role: r.role,
+        email: r.email,
+        userId: r.userId,
       ));
     } catch (e, st) {
       state = AsyncError(e, st);
@@ -122,19 +142,25 @@ class AuthController extends AsyncNotifier<AuthState> {
     state = const AsyncLoading();
     try {
       final r = await ref.read(authApiProvider).register(
-        fullName: fullName,
-        email: email,
-        phoneNumber: phoneNumber,
-        password: password,
-        role: role,
-      );
+            fullName: fullName,
+            email: email,
+            phoneNumber: phoneNumber,
+            password: password,
+            role: role,
+          );
       await ref.read(tokenStoreProvider).setSession(
-        access: r.accessToken, refresh: r.refreshToken,
-        role: r.role.name, email: r.email, userId: r.userId,
-      );
+            access: r.accessToken,
+            refresh: r.refreshToken,
+            role: r.role.name,
+            email: r.email,
+            userId: r.userId,
+          );
       state = AsyncData(AuthState(
-        accessToken: r.accessToken, refreshToken: r.refreshToken,
-        role: r.role, email: r.email, userId: r.userId,
+        accessToken: r.accessToken,
+        refreshToken: r.refreshToken,
+        role: r.role,
+        email: r.email,
+        userId: r.userId,
       ));
     } catch (e, st) {
       state = AsyncError(e, st);
@@ -155,5 +181,3 @@ class AuthController extends AsyncNotifier<AuthState> {
 
 final authControllerProvider =
     AsyncNotifierProvider<AuthController, AuthState>(AuthController.new);
-
-

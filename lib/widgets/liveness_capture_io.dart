@@ -4,11 +4,10 @@ import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img_pkg;
 
 import '../theme/colors.dart';
 import 'app_button.dart';
-import '../models/image_data.dart';
-import 'package:image/image.dart' as img_pkg;
 
 class LivenessCapture extends StatefulWidget {
   const LivenessCapture({
@@ -35,10 +34,10 @@ class _LivenessCaptureState extends State<LivenessCapture> {
   double _progress = 0;
 
   static const _actionText = <String, String>{
-    'blink':      'Blink slowly, twice',
-    'turn_left':  'Turn your head to your LEFT',
+    'blink': 'Blink slowly, twice',
+    'turn_left': 'Turn your head to your LEFT',
     'turn_right': 'Turn your head to your RIGHT',
-    'nod':        'Nod your head up and down',
+    'nod': 'Nod your head up and down',
   };
 
   @override
@@ -63,7 +62,10 @@ class _LivenessCaptureState extends State<LivenessCapture> {
       final c = CameraController(cam, ResolutionPreset.medium,
           enableAudio: false, imageFormatGroup: ImageFormatGroup.jpeg);
       await c.initialize();
-      if (!mounted) { await c.dispose(); return; }
+      if (!mounted) {
+        await c.dispose();
+        return;
+      }
       setState(() => _ctrl = c);
     } catch (e) {
       setState(() => _error = e.toString());
@@ -73,7 +75,10 @@ class _LivenessCaptureState extends State<LivenessCapture> {
   Future<void> _record() async {
     final c = _ctrl;
     if (c == null || !c.value.isInitialized || _recording) return;
-    setState(() { _recording = true; _progress = 0; });
+    setState(() {
+      _recording = true;
+      _progress = 0;
+    });
 
     final frames = <String>[];
     final t0 = DateTime.now();
@@ -102,7 +107,8 @@ class _LivenessCaptureState extends State<LivenessCapture> {
 
         final elapsedMs = DateTime.now().difference(t0).inMilliseconds;
         if (mounted) {
-          setState(() => _progress = (elapsedMs / widget.durationMs).clamp(0, 1));
+          setState(
+              () => _progress = (elapsedMs / widget.durationMs).clamp(0, 1));
         }
         final nextMs = ((frames.length) * frameInterval.inMilliseconds);
         final waitMs = nextMs - elapsedMs;
@@ -111,7 +117,12 @@ class _LivenessCaptureState extends State<LivenessCapture> {
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
-      if (mounted) setState(() { _recording = false; _progress = 1; });
+      if (mounted) {
+        setState(() {
+          _recording = false;
+          _progress = 1;
+        });
+      }
     }
 
     if (mounted) widget.onFrames(frames);
@@ -123,11 +134,13 @@ class _LivenessCaptureState extends State<LivenessCapture> {
 
     return Column(
       children: [
-        Text(
+        const Text(
           'LIVENESS CHALLENGE',
           style: TextStyle(
-            color: AppColors.ink400, fontSize: 11,
-            letterSpacing: 2, fontWeight: FontWeight.w500,
+            color: AppColors.ink400,
+            fontSize: 11,
+            letterSpacing: 2,
+            fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 4),
@@ -144,25 +157,30 @@ class _LivenessCaptureState extends State<LivenessCapture> {
               if (_ctrl?.value.isInitialized == true)
                 Transform(
                   alignment: Alignment.center,
-                  transform: Matrix4.identity()..scale(-1.0, 1.0),
+                  transform: Matrix4.identity()..scaleByDouble(-1.0, 1.0, 0, 0),
                   child: CameraPreview(_ctrl!),
                 ),
               if (_recording)
                 Positioned(
-                  left: 0, right: 0, bottom: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
                   child: SizedBox(
                     height: 4,
                     child: LinearProgressIndicator(
                       value: _progress,
                       backgroundColor: AppColors.ink800,
-                      valueColor: const AlwaysStoppedAnimation(AppColors.brandAccent),
+                      valueColor:
+                          const AlwaysStoppedAnimation(AppColors.brandAccent),
                     ),
                   ),
                 ),
               if (_error != null)
-                Center(child: Padding(
+                Center(
+                    child: Padding(
                   padding: const EdgeInsets.all(20),
-                  child: Text(_error!, textAlign: TextAlign.center,
+                  child: Text(_error!,
+                      textAlign: TextAlign.center,
                       style: const TextStyle(color: AppColors.danger)),
                 )),
             ]),

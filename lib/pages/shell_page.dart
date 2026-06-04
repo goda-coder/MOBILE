@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../models/api_models.dart';
 import '../state/providers.dart';
-import '../theme/colors.dart';
 
 class _Tab {
   const _Tab(this.label, this.icon, this.path);
