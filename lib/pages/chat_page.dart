@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../api/chat_api.dart';
 import '../models/api_models.dart';
 import '../state/providers.dart';
 import '../theme/colors.dart';
-import '../theme/app_theme.dart';
 import '../widgets/app_button.dart';
 import '../widgets/status_pill.dart';
 

@@ -1,8 +1,8 @@
-import 'dart:typed_data';
 import 'package:dio/dio.dart';
+
 import '../models/api_models.dart';
-import 'api_client.dart';
 import '../models/image_data.dart';
+import 'api_client.dart';
 
 class KycApi {
   KycApi(this._c);

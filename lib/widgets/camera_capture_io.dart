@@ -1,10 +1,11 @@
 import 'dart:io';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 
+import '../models/image_data.dart';
 import '../theme/colors.dart';
 import 'app_button.dart';
-import '../models/image_data.dart';
 
 class CameraCapture extends StatefulWidget {
   const CameraCapture({

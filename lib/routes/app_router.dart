@@ -4,11 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../models/api_models.dart';
 import '../pages/admin_kyc_review_page.dart';
+import '../pages/chat_page.dart';
 import '../pages/fingerprint_auth_page.dart';
 import '../pages/fingerprint_login_page.dart';
 import '../pages/kyc_liveness_page.dart';
 import '../pages/kyc_status_page.dart';
-import '../pages/chat_page.dart';
 import '../pages/kyc_submit_page.dart';
 import '../pages/login_page.dart';
 import '../pages/merchant_qr_page.dart';
