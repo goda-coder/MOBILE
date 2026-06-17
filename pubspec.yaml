@@ -39,6 +39,7 @@ dependencies:
   file_picker: ^5.4.0
 
   cupertino_icons: ^1.0.8
+  lottie: ^3.3.3
 
 dev_dependencies:
   flutter_test:
@@ -47,5 +48,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-  # No bundled assets right now. Add them under `assets/` and reference here
-  # if you ship logos or example KYC samples.
+  assets:
+    - assets/illustrations/

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wallet/pages/on_boarding_page.dart';
 
 import '../models/api_models.dart';
 import '../pages/admin_kyc_review_page.dart';
@@ -30,8 +31,10 @@ const _public = {'/login', '/register', '/payment-success', '/payment-failure', 
 
 /// Paths that require a particular role beyond authentication.
 bool _isAllowed(String path, Role? role) {
-  if (path.startsWith('/admin/'))    return role == Role.admin;
-  if (path.startsWith('/merchant/')) return role == Role.merchant || role == Role.admin;
+  if (path.startsWith('/admin/')) return role == Role.admin;
+  if (path.startsWith('/merchant/')) {
+    return role == Role.merchant || role == Role.admin;
+  }
   return true;
 }
 
@@ -40,7 +43,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final authListenable = _RouterRefresh(ref);
 
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: '/onboarding',
     refreshListenable: authListenable,
     redirect: (context, state) {
       final auth = ref.read(authControllerProvider).value;
@@ -58,7 +61,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       // Public routes (no shell, no bottom nav)
-      GoRoute(path: '/login',    builder: (_, __) => const LoginPage()),
+      GoRoute(path: '/onboarding', builder: (_, __) => const OnBoardingPage()),
+      GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterPage()),
       GoRoute(path: '/fingerprint-login', builder: (_, __) => const FingerprintLoginPage()),
       GoRoute(path: '/payment-success', builder: (_, __) => const PaymentSuccessPage()),
