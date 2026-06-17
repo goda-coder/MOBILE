@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
-import 'package:wallet/utils/context_extensions.dart';
 import 'package:wallet/widgets/app_button.dart';
 
 class OnBoardingPage extends StatefulWidget {
@@ -31,6 +30,8 @@ class OnBoardingSlideWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -38,17 +39,17 @@ class OnBoardingSlideWidget extends StatelessWidget {
         Center(child: Lottie.asset(slide.lottiePath)),
         Text(
           slide.title,
-          style: context.textTheme.headlineLarge?.copyWith(
+          style: theme.textTheme.headlineLarge?.copyWith(
             fontWeight: FontWeight.bold,
             fontFamily: GoogleFonts.poorStory().fontFamily,
-            color: context.colorScheme.primary,
+            color: theme.colorScheme.primary,
           ),
         ),
         const SizedBox(height: 16.0),
         Text(
           slide.description,
-          style: context.textTheme.titleMedium?.copyWith(
-            color: context.colorScheme.onSurface.withValues(alpha: 0.6),
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
             height: 1.5,
           ),
         ),
@@ -96,6 +97,8 @@ class _OnBoardingPageState extends State<OnBoardingPage>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -147,7 +150,7 @@ class _OnBoardingPageState extends State<OnBoardingPage>
                                       Container(
                                         height: 4,
                                         decoration: BoxDecoration(
-                                          color: context
+                                          color: theme
                                               .colorScheme.primaryContainer,
                                           borderRadius: BorderRadius.circular(
                                             100,
@@ -160,7 +163,7 @@ class _OnBoardingPageState extends State<OnBoardingPage>
                                         child: Container(
                                           height: 4,
                                           decoration: BoxDecoration(
-                                            color: context.colorScheme.primary,
+                                            color: theme.colorScheme.primary,
                                             borderRadius: BorderRadius.circular(
                                               100,
                                             ),

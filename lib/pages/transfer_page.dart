@@ -151,9 +151,9 @@ class _TransferPageState extends ConsumerState<TransferPage> {
                       decoration: InputDecoration(
                         hintText: '0.00',
                         suffixText: 'EGP',
-                        suffixStyle: numTextStyle(color: AppColors.ink400, fontSize: 13),
+                        suffixStyle: AppTheme.numTextStyle(color: AppColors.ink400, fontSize: 13),
                       ),
-                      style: numTextStyle(fontSize: 26),
+                      style: AppTheme.numTextStyle(fontSize: 26),
                     ),
                   ]),
                   const SizedBox(height: 14),

@@ -36,7 +36,13 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
 
   List<_Step> get _steps => _isPassport
       ? [_Step.docType, _Step.idFront, _Step.selfie, _Step.review]
-      : [_Step.docType, _Step.idFront, _Step.idBack, _Step.selfie, _Step.review];
+      : [
+          _Step.docType,
+          _Step.idFront,
+          _Step.idBack,
+          _Step.selfie,
+          _Step.review
+        ];
 
   int get _currentIdx => _steps.indexOf(_step).clamp(0, _steps.length - 1);
 
@@ -52,17 +58,20 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
 
   Future<void> _submit() async {
     if (_idFront == null || _selfie == null) return;
-    setState(() { _submitting = true; _error = null; });
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
     try {
       final r = await ref.read(kycApiProvider).submit(
-        documentType: _docType,
-        idFront: _idFront!,
-        idBack: _isPassport ? null : _idBack,
-        selfie: _selfie!,
-      );
+            documentType: _docType,
+            idFront: _idFront!,
+            idBack: _isPassport ? null : _idBack,
+            selfie: _selfie!,
+          );
       setState(() {
         _resultStatus = r.status;
-        _resultMatch  = r.matchPercentage;
+        _resultMatch = r.matchPercentage;
         _step = _Step.done;
       });
     } on ApiError catch (e) {
@@ -76,16 +85,13 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
 
   Future<ImageData?> _pickImageFromDevice() async {
     try {
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.image,
-        allowMultiple: false,
-        withData: true,
       );
       if (result == null || result.files.isEmpty) return null;
       final file = result.files.first;
-      final bytes = file.bytes;
-      if (bytes == null) return null;
-      return ImageData(bytes, name: file.name);
+      final bytes = await file.readAsBytes();
+      return ImageData.fromBytes(bytes, name: file.name);
     } catch (e) {
       setState(() => _error = 'Failed to pick image: $e');
       return null;
@@ -106,7 +112,8 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             // Progress bar
             Row(children: [
               for (int i = 0; i < _steps.length - 1; i++) ...[
@@ -116,9 +123,8 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
                     height: 4,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(2),
-                      gradient: i < _currentIdx
-                          ? AppColors.brandGradient
-                          : null,
+                      gradient:
+                          i < _currentIdx ? AppColors.brandGradient : null,
                       color: i < _currentIdx
                           ? null
                           : i == _currentIdx
@@ -130,9 +136,13 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
               ],
             ]),
             const SizedBox(height: 16),
-            if (_error != null) ...[ErrorCard(message: _error!), const SizedBox(height: 12)],
+            if (_error != null) ...[
+              ErrorCard(message: _error!),
+              const SizedBox(height: 12)
+            ],
 
-            Card(child: Padding(
+            Card(
+                child: Padding(
               padding: const EdgeInsets.all(18),
               child: _buildStep(),
             )),
@@ -150,16 +160,20 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           Row(children: [
-            Expanded(child: _DocTile(
+            Expanded(
+                child: _DocTile(
               active: _docType == 'national_id',
               onTap: () => setState(() => _docType = 'national_id'),
-              title: 'National ID', sub: 'Egyptian card (14-digit)',
+              title: 'National ID',
+              sub: 'Egyptian card (14-digit)',
             )),
             const SizedBox(width: 8),
-            Expanded(child: _DocTile(
+            Expanded(
+                child: _DocTile(
               active: _docType == 'passport',
               onTap: () => setState(() => _docType = 'passport'),
-              title: 'Passport', sub: 'MRZ-readable photo page',
+              title: 'Passport',
+              sub: 'MRZ-readable photo page',
             )),
           ]),
           const SizedBox(height: 18),
@@ -197,7 +211,8 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
       case _Step.selfie:
         return _CapStep(
           title: 'Take a selfie',
-          sub: 'Look straight at the camera. Neutral expression. Remove glasses if possible.',
+          sub:
+              'Look straight at the camera. Neutral expression. Remove glasses if possible.',
           faceGuide: true,
           front: true,
           existing: _selfie,
@@ -230,11 +245,15 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
           ),
           const SizedBox(height: 16),
           Wrap(spacing: 8, children: [
-            AppButton(label: 'Send to admin for review',
+            AppButton(
+              label: 'Send to admin for review',
               onPressed: _idFront != null && _selfie != null ? _submit : null,
               loading: _submitting,
             ),
-            AppButton(label: 'Back', variant: AppButtonVariant.ghost, onPressed: _back),
+            AppButton(
+                label: 'Back',
+                variant: AppButtonVariant.ghost,
+                onPressed: _back),
           ]),
         ]);
 
@@ -242,7 +261,8 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
         final verified = _resultStatus == 'AutoVerified';
         return Column(children: [
           Container(
-            width: 64, height: 64,
+            width: 64,
+            height: 64,
             decoration: BoxDecoration(
               color: verified
                   ? AppColors.success.withValues(alpha: 0.15)
@@ -250,11 +270,13 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
               shape: BoxShape.circle,
             ),
             child: Icon(verified ? Icons.check : Icons.hourglass_top,
-                color: verified ? AppColors.success : AppColors.warning, size: 32),
+                color: verified ? AppColors.success : AppColors.warning,
+                size: 32),
           ),
           const SizedBox(height: 16),
           Text(verified ? "You're verified." : 'In review.',
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
+              style:
+                  const TextStyle(fontSize: 22, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Text(
             verified
@@ -271,8 +293,15 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
 }
 
 class _DocTile extends StatelessWidget {
-  const _DocTile({required this.active, required this.onTap, required this.title, required this.sub});
-  final bool active; final VoidCallback onTap; final String title; final String sub;
+  const _DocTile(
+      {required this.active,
+      required this.onTap,
+      required this.title,
+      required this.sub});
+  final bool active;
+  final VoidCallback onTap;
+  final String title;
+  final String sub;
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -284,15 +313,17 @@ class _DocTile extends StatelessWidget {
           color: active
               ? AppColors.brandPrimary.withValues(alpha: 0.1)
               : AppColors.ink950.withValues(alpha: 0.4),
-          border: Border.all(color: active
-              ? AppColors.brandPrimary.withValues(alpha: 0.6)
-              : Colors.white.withValues(alpha: 0.06)),
+          border: Border.all(
+              color: active
+                  ? AppColors.brandPrimary.withValues(alpha: 0.6)
+                  : Colors.white.withValues(alpha: 0.06)),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 2),
-          Text(sub, style: const TextStyle(color: AppColors.ink400, fontSize: 12)),
+          Text(sub,
+              style: const TextStyle(color: AppColors.ink400, fontSize: 12)),
         ]),
       ),
     );
@@ -301,17 +332,22 @@ class _DocTile extends StatelessWidget {
 
 class _CapStep extends StatelessWidget {
   const _CapStep({
-    required this.title, required this.sub,
-    required this.faceGuide, required this.front,
+    required this.title,
+    required this.sub,
+    required this.faceGuide,
+    required this.front,
     required this.existing,
     required this.onCaptured,
     required this.onUpload,
     required this.onRetake,
-    required this.onNext, required this.onBack,
+    required this.onNext,
+    required this.onBack,
   });
 
-  final String title; final String sub;
-  final bool faceGuide; final bool front;
+  final String title;
+  final String sub;
+  final bool faceGuide;
+  final bool front;
   final ImageData? existing;
   final ValueChanged<ImageData> onCaptured;
   final Future<void> Function()? onUpload;
@@ -322,7 +358,8 @@ class _CapStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+      Text(title,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
       const SizedBox(height: 4),
       Text(sub, style: const TextStyle(color: AppColors.ink400, fontSize: 13)),
       const SizedBox(height: 14),
@@ -336,8 +373,10 @@ class _CapStep extends StatelessWidget {
                 ? FutureBuilder<Uint8List>(
                     future: existing!.getBytes(),
                     builder: (context, snap) {
-                      if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-                      return Image.memory(snap.data!, fit: BoxFit.cover, width: double.infinity);
+                      if (!snap.hasData)
+                        return const Center(child: CircularProgressIndicator());
+                      return Image.memory(snap.data!,
+                          fit: BoxFit.cover, width: double.infinity);
                     })
                 : Container(color: AppColors.ink950),
           ),
@@ -345,11 +384,18 @@ class _CapStep extends StatelessWidget {
         const SizedBox(height: 12),
         Wrap(spacing: 8, children: [
           AppButton(label: 'Looks good', onPressed: onNext),
-          AppButton(label: 'Retake', variant: AppButtonVariant.ghost, onPressed: onRetake),
-          AppButton(label: 'Back', variant: AppButtonVariant.ghost, onPressed: onBack),
+          AppButton(
+              label: 'Retake',
+              variant: AppButtonVariant.ghost,
+              onPressed: onRetake),
+          AppButton(
+              label: 'Back',
+              variant: AppButtonVariant.ghost,
+              onPressed: onBack),
         ]),
       ] else ...[
-        CameraCapture(faceGuide: faceGuide, front: front, onCaptured: onCaptured),
+        CameraCapture(
+            faceGuide: faceGuide, front: front, onCaptured: onCaptured),
         const SizedBox(height: 8),
         AppButton(
           label: 'Upload from device',
@@ -358,7 +404,8 @@ class _CapStep extends StatelessWidget {
           onPressed: onUpload,
         ),
         const SizedBox(height: 8),
-        AppButton(label: 'Back', variant: AppButtonVariant.ghost, onPressed: onBack),
+        AppButton(
+            label: 'Back', variant: AppButtonVariant.ghost, onPressed: onBack),
       ],
     ]);
   }
@@ -366,7 +413,8 @@ class _CapStep extends StatelessWidget {
 
 class _Thumb extends StatelessWidget {
   const _Thumb({required this.file, required this.label});
-  final ImageData? file; final String label;
+  final ImageData? file;
+  final String label;
   @override
   Widget build(BuildContext context) {
     return Column(children: [
@@ -380,16 +428,20 @@ class _Thumb extends StatelessWidget {
                 ? FutureBuilder<Uint8List>(
                     future: file!.getBytes(),
                     builder: (context, snap) {
-                      if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+                      if (!snap.hasData)
+                        return const Center(child: CircularProgressIndicator());
                       return Image.memory(snap.data!, fit: BoxFit.cover);
                     })
-                : const Center(child: Text('missing',
-                    style: TextStyle(color: AppColors.ink400, fontSize: 11))),
+                : const Center(
+                    child: Text('missing',
+                        style:
+                            TextStyle(color: AppColors.ink400, fontSize: 11))),
           ),
         ),
       ),
       const SizedBox(height: 4),
-      Text(label, style: const TextStyle(color: AppColors.ink400, fontSize: 11)),
+      Text(label,
+          style: const TextStyle(color: AppColors.ink400, fontSize: 11)),
     ]);
   }
 }

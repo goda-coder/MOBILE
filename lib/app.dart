@@ -13,7 +13,7 @@ class WalletApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'INSTA SHIELD',
       debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(),
+      theme: AppTheme.darkTheme,
       routerConfig: router,
     );
   }

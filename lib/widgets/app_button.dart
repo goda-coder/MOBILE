@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../theme/colors.dart';
 
 enum AppButtonVariant { primary, ghost, danger }
@@ -24,82 +23,100 @@ class AppButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final disabled = loading || onPressed == null;
+    final bool isDisabled = onPressed == null || loading;
+    final VoidCallback? effectiveOnPressed = isDisabled ? null : onPressed;
 
-    Widget child = Row(
-      mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        if (loading) ...const [
-          SizedBox(
-            width: 16, height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.ink100),
-          ),
-          SizedBox(width: 8),
-        ] else if (icon != null) ...[
-          Icon(icon, size: 18),
-          const SizedBox(width: 8),
-        ],
-        Text(label, style: const TextStyle(
-          fontWeight: FontWeight.w600, letterSpacing: 0.1,
-        )),
-      ],
+    final Color foregroundColor =
+        variant == AppButtonVariant.ghost ? AppColors.ink100 : Colors.white;
+
+    // 1. بناء الأيقونة أو مؤشر التحميل بشكل منفصل
+    Widget? buttonIcon;
+    if (loading) {
+      buttonIcon = SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation<Color>(foregroundColor),
+        ),
+      );
+    } else if (icon != null) {
+      buttonIcon = Icon(icon, size: 18);
+    }
+
+    // 2. إعدادات الـ Style الموحدة (تم استبدال الـ Rows بـ minimumSize للـ expand)
+    final OutlinedBorder buttonShape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    );
+    final EdgeInsets geometryPadding =
+        const EdgeInsets.symmetric(horizontal: 16, vertical: 14);
+    final TextStyle textStyle =
+        const TextStyle(fontWeight: FontWeight.w600, letterSpacing: 0.1);
+
+    // لضمان التمدد الأفقي الكامل إذا كان expand مفعلاً دون التأثير على الارتفاع
+    final Size? minSize = expand ? const Size(double.infinity, 0) : null;
+
+    final Widget labelWidget = Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis, // حماية إضافية لو النص طويل جداً
     );
 
-    final padding = const EdgeInsets.symmetric(horizontal: 20, vertical: 14);
-
+    // 3. بناء الأزرار باستخدام الـ Built-in Constructors الرسمية
     switch (variant) {
-      case AppButtonVariant.primary:
-        return Opacity(
-          opacity: disabled ? 0.5 : 1,
-          child: InkWell(
-            onTap: disabled ? null : onPressed,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: padding,
-              decoration: BoxDecoration(
-                gradient: AppColors.brandGradient,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: disabled ? null : [
-                  BoxShadow(
-                    color: AppColors.brandPrimary.withValues(alpha: 0.35),
-                    blurRadius: 18, offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: DefaultTextStyle.merge(
-                style: const TextStyle(color: Colors.white),
-                child: child,
-              ),
-            ),
-          ),
-        );
-
       case AppButtonVariant.ghost:
-        return OutlinedButton(
-          onPressed: disabled ? null : onPressed,
-          style: OutlinedButton.styleFrom(
-            padding: padding,
-            foregroundColor: AppColors.ink100,
-            backgroundColor: Colors.white.withValues(alpha: 0.04),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          child: child,
+        final ghostStyle = OutlinedButton.styleFrom(
+          padding: geometryPadding,
+          shape: buttonShape,
+          minimumSize: minSize,
+          foregroundColor: foregroundColor,
+          backgroundColor: Colors.white.withValues(alpha: 0.04),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+          textStyle: textStyle,
         );
 
+        return buttonIcon != null
+            ? OutlinedButton.icon(
+                onPressed: effectiveOnPressed,
+                style: ghostStyle,
+                icon: buttonIcon,
+                label: labelWidget,
+              )
+            : OutlinedButton(
+                onPressed: effectiveOnPressed,
+                style: ghostStyle,
+                child: labelWidget,
+              );
+
+      case AppButtonVariant.primary:
       case AppButtonVariant.danger:
-        return ElevatedButton(
-          onPressed: disabled ? null : onPressed,
-          style: ElevatedButton.styleFrom(
-            padding: padding,
-            backgroundColor: AppColors.danger,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          child: child,
+        final Color baseColor = variant == AppButtonVariant.primary
+            ? AppColors.brandPrimary
+            : AppColors.danger;
+
+        final filledStyle = FilledButton.styleFrom(
+          padding: geometryPadding,
+          shape: buttonShape,
+          minimumSize: minSize,
+          foregroundColor: foregroundColor,
+          backgroundColor: baseColor,
+          disabledBackgroundColor: baseColor.withValues(alpha: 0.5),
+          disabledForegroundColor: Colors.white.withValues(alpha: 0.6),
+          textStyle: textStyle,
         );
+
+        return buttonIcon != null
+            ? FilledButton.icon(
+                onPressed: effectiveOnPressed,
+                style: filledStyle,
+                icon: buttonIcon,
+                label: labelWidget,
+              )
+            : FilledButton(
+                onPressed: effectiveOnPressed,
+                style: filledStyle,
+                child: labelWidget,
+              );
     }
   }
 }

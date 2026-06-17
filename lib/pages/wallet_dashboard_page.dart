@@ -91,7 +91,7 @@ class WalletDashboardPage extends ConsumerWidget {
                     const SizedBox(height: 12),
                     txs.when(
                       data: (list) => list.isEmpty
-                          ? _Empty(
+                          ? const _Empty(
                               text:
                                   'No transactions yet. Send or top up to get started.')
                           : _TxList(txs: list),
@@ -121,83 +121,85 @@ class _BentoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(children: [
       // Big balance tile
-      Stack(children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('BALANCE',
-                    style: TextStyle(
-                        letterSpacing: 2,
-                        color: AppColors.ink400,
-                        fontSize: 11)),
-                const SizedBox(height: 6),
-                Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Text(
-                    formatAmount(summary.balanceMinor),
-                    style:
-                        numTextStyle(fontSize: 40, fontWeight: FontWeight.w300),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('BALANCE',
+                  style: TextStyle(
+                      letterSpacing: 2, color: AppColors.ink400, fontSize: 11)),
+              const SizedBox(height: 6),
+              Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(
+                  formatAmount(summary.balanceMinor),
+                  style: AppTheme.numTextStyle(
+                      fontSize: 40, fontWeight: FontWeight.w300),
+                ),
+                const SizedBox(width: 8),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text(summary.currency,
+                      style: AppTheme.numTextStyle(
+                          fontSize: 16, color: AppColors.ink400)),
+                ),
+              ]),
+              const SizedBox(height: 16),
+              Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AppButton(
+                          label: 'Send',
+                          icon: Icons.north_east,
+                          expand: true,
+                          onPressed: () => context.push('/transfer'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: AppButton(
+                          label: 'Top up',
+                          icon: Icons.add,
+                          variant: AppButtonVariant.ghost,
+                          expand: true,
+                          onPressed: () => context.push('/top-up'),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 6),
-                    child: Text(summary.currency,
-                        style: numTextStyle(
-                            fontSize: 16, color: AppColors.ink400)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AppButton(
+                          label: 'Support',
+                          icon: Icons.chat_bubble,
+                          variant: AppButtonVariant.ghost,
+                          expand: true,
+                          onPressed: () => context.push('/chat'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: AppButton(
+                          label: 'Report',
+                          icon: Icons.receipt_long,
+                          variant: AppButtonVariant.ghost,
+                          expand: true,
+                          onPressed: () => context.push('/report'),
+                        ),
+                      ),
+                    ],
                   ),
-                ]),
-                const SizedBox(height: 16),
-                Wrap(spacing: 8, runSpacing: 8, children: [
-                  AppButton(
-                      label: 'Send',
-                      icon: Icons.north_east,
-                      onPressed: () => context.push('/transfer')),
-                  AppButton(
-                      label: 'Top up',
-                      icon: Icons.add,
-                      variant: AppButtonVariant.ghost,
-                      onPressed: () => context.push('/top-up')),
-                  AppButton(
-                      label: 'Scan',
-                      icon: Icons.qr_code_scanner,
-                      variant: AppButtonVariant.ghost,
-                      onPressed: () => context.push('/scan')),
-                  AppButton(
-                      label: 'Support',
-                      icon: Icons.chat_bubble,
-                      variant: AppButtonVariant.ghost,
-                      onPressed: () => context.push('/chat')),
-                  AppButton(
-                      label: 'Report',
-                      icon: Icons.receipt_long,
-                      variant: AppButtonVariant.ghost,
-                      onPressed: () => context.push('/report')),
-                ]),
-              ],
-            ),
+                ],
+              )
+            ],
           ),
         ),
-        // Soft brand glow
-        Positioned(
-          right: -20,
-          top: -20,
-          child: IgnorePointer(
-            child: Container(
-              width: 160,
-              height: 160,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [
-                  AppColors.brandPrimary.withValues(alpha: 0.25),
-                  Colors.transparent,
-                ]),
-              ),
-            ),
-          ),
-        ),
-      ]),
+      ),
       const SizedBox(height: 14),
 
       // Identity tile
@@ -311,7 +313,7 @@ class _TxList extends StatelessWidget {
             ),
             Text(
               '${positive ? '+' : '−'}${formatMoney(t.amountMinor, currency: t.currency)}',
-              style: numTextStyle(
+              style: AppTheme.numTextStyle(
                 fontSize: 14,
                 color: positive ? AppColors.success : AppColors.ink100,
               ),
@@ -377,7 +379,7 @@ class _RoleDashboardCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(subtitle, style: const TextStyle(color: AppColors.ink400)),
           const SizedBox(height: 14),
-          Row(children: [
+          Row(spacing: 12.0, children: [
             if (role == Role.admin)
               AppButton(
                   label: 'Review KYC',
@@ -402,7 +404,7 @@ class _BalanceSkeleton extends StatelessWidget {
   const _BalanceSkeleton();
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
+    return const Column(children: [
       Card(
         child: SizedBox(
           height: 180,

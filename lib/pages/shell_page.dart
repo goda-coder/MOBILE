@@ -23,30 +23,28 @@ class ShellPage extends ConsumerWidget {
 
     final tabs = <_Tab>[
       const _Tab('Wallet', Icons.account_balance_wallet_outlined, '/'),
-      const _Tab('Send',   Icons.send_outlined,                   '/transfer'),
-      const _Tab('Scan',   Icons.qr_code_scanner_outlined,        '/scan'),
+      const _Tab('Send', Icons.send_outlined, '/transfer'),
+      const _Tab('Scan', Icons.qr_code_scanner_outlined, '/scan'),
       if (role == Role.merchant || role == Role.admin)
-        const _Tab('Receive', Icons.qr_code_2_outlined,           '/merchant/qr'),
+        const _Tab('Receive', Icons.qr_code_2_outlined, '/merchant/qr'),
       if (role == Role.admin)
-        const _Tab('Admin',   Icons.admin_panel_settings_outlined, '/admin/kyc'),
-      const _Tab('Me',     Icons.person_outline,                  '/profile'),
+        const _Tab('Admin', Icons.admin_panel_settings_outlined, '/admin/kyc'),
+      const _Tab('Me', Icons.person_outline, '/profile'),
     ];
 
     final location = GoRouterState.of(context).matchedLocation;
-    int currentIdx = tabs.indexWhere((t) =>
-        t.path == '/' ? location == '/' : location.startsWith(t.path));
+    int currentIdx = tabs.indexWhere(
+        (t) => t.path == '/' ? location == '/' : location.startsWith(t.path));
     if (currentIdx < 0) currentIdx = 0;
 
     return Scaffold(
-      body: child,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: currentIdx,
-        onTap: (i) => context.go(tabs[i].path),
-        items: [
-          for (final t in tabs)
-            BottomNavigationBarItem(icon: Icon(t.icon), label: t.label),
-        ],
-      ),
-    );
+        body: child,
+        bottomNavigationBar: NavigationBar(
+            selectedIndex: currentIdx,
+            onDestinationSelected: (index) => context.go(tabs[index].path),
+            destinations: tabs
+                .map((tab) => NavigationDestination(
+                    icon: Icon(tab.icon), label: tab.label))
+                .toList()));
   }
 }

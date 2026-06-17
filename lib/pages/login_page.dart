@@ -16,9 +16,10 @@ class LoginPage extends ConsumerStatefulWidget {
 }
 
 class _LoginPageState extends ConsumerState<LoginPage> {
-  static const _adminPhone = '+201001234567';
-  static const _merchantPhone = '+201101234567';
+  static const _adminPhone = '+201000000001';
+  static const _merchantPhone = '+201000000002';
   static const _seedPassword = 'Admin1234!';
+  static const _merchantPassword = 'Merchant1234!';
 
   final _phone = TextEditingController();
   final _password = TextEditingController();
@@ -27,7 +28,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   void dispose() {
-    _phone.dispose(); _password.dispose();
+    _phone.dispose();
+    _password.dispose();
     super.dispose();
   }
 
@@ -39,9 +41,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   }
 
   Future<void> _submit() async {
-    setState(() { _error = null; _busy = true; });
+    setState(() {
+      _error = null;
+      _busy = true;
+    });
     try {
-      await ref.read(authControllerProvider.notifier)
+      await ref
+          .read(authControllerProvider.notifier)
           .signIn(_phone.text.trim(), _password.text);
       if (mounted) context.go('/');
     } on ApiError catch (e) {
@@ -67,16 +73,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               // Brand mark
               Row(children: [
                 ShaderMask(
-                  shaderCallback: (b) => AppColors.brandGradient.createShader(b),
+                  shaderCallback: (b) =>
+                      AppColors.brandGradient.createShader(b),
                   child: const Text(
                     'wallet.',
-                    style: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: Colors.white),
+                    style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white),
                   ),
                 ),
               ]),
               const SizedBox(height: 32),
               const Text('WELCOME BACK',
-                  style: TextStyle(color: AppColors.ink400, fontSize: 12, letterSpacing: 2)),
+                  style: TextStyle(
+                      color: AppColors.ink400, fontSize: 12, letterSpacing: 2)),
               const SizedBox(height: 6),
               const Text('Sign in to your wallet.',
                   style: TextStyle(fontSize: 26, fontWeight: FontWeight.w600)),
@@ -88,14 +99,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ],
 
               AppInput(
-                controller: _phone, label: 'Phone Number',
+                controller: _phone,
+                label: 'Phone Number',
                 keyboardType: TextInputType.phone,
                 autofillHints: const [AutofillHints.telephoneNumber],
                 hint: '+20-1XX-XXX-XXXX',
               ),
               const SizedBox(height: 14),
               AppInput(
-                controller: _password, label: 'Password',
+                controller: _password,
+                label: 'Password',
                 obscure: true,
                 autofillHints: const [AutofillHints.password],
                 hint: '••••••••',
@@ -103,7 +116,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
-                child: AppButton(label: 'Sign in', onPressed: _submit, loading: _busy, expand: true),
+                child: AppButton(
+                    label: 'Sign in',
+                    onPressed: _submit,
+                    loading: _busy,
+                    expand: true),
               ),
               const SizedBox(height: 12),
               SizedBox(
@@ -111,7 +128,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 child: AppButton(
                   label: 'Login with fingerprint',
                   variant: AppButtonVariant.ghost,
-                  onPressed: _busy ? null : () => context.go('/fingerprint-login'),
+                  onPressed:
+                      _busy ? null : () => context.go('/fingerprint-login'),
                   expand: true,
                 ),
               ),
@@ -121,7 +139,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   child: AppButton(
                     label: 'Admin login',
                     variant: AppButtonVariant.ghost,
-                    onPressed: _busy ? null : () => _quickLogin(_adminPhone, _seedPassword),
+                    onPressed: _busy
+                        ? null
+                        : () => _quickLogin(_adminPhone, _seedPassword),
                     expand: true,
                   ),
                 ),
@@ -130,7 +150,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   child: AppButton(
                     label: 'Merchant login',
                     variant: AppButtonVariant.ghost,
-                    onPressed: _busy ? null : () => _quickLogin(_merchantPhone, _seedPassword),
+                    onPressed: _busy
+                        ? null
+                        : () => _quickLogin(_merchantPhone, _merchantPassword),
                     expand: true,
                   ),
                 ),
@@ -145,12 +167,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               const SizedBox(height: 16),
               Center(
                 child: Text('API: $apiBaseUrl',
-                    style: const TextStyle(color: AppColors.ink400, fontSize: 11)),
+                    style:
+                        const TextStyle(color: AppColors.ink400, fontSize: 11)),
               ),
               const SizedBox(height: 60),
               const Center(
                 child: Text('Egyptian Wallet · Built in Dakahlia',
-                    style: TextStyle(color: AppColors.ink400, fontSize: 11, letterSpacing: 2)),
+                    style: TextStyle(
+                        color: AppColors.ink400,
+                        fontSize: 11,
+                        letterSpacing: 2)),
               ),
             ],
           ),

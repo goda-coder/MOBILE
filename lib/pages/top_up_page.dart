@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:wallet/theme/colors.dart';
+import 'package:wallet/widgets/inline_alert.dart';
+import 'package:wallet/widgets/status_pill.dart';
 
 import '../api/api_client.dart';
 import '../state/providers.dart';
 import '../theme/app_theme.dart';
-import '../theme/colors.dart';
 import '../utils/format.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_input.dart';
-import '../widgets/status_pill.dart';
 
 enum _Method { card, wallet, fingerprint }
 
@@ -22,13 +23,17 @@ class TopUpPage extends ConsumerStatefulWidget {
   ConsumerState<TopUpPage> createState() => _TopUpPageState();
 }
 
-class _TopUpPageState extends ConsumerState<TopUpPage> {
+class _TopUpPageState extends ConsumerState<TopUpPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
   _Method _method = _Method.card;
+
   final _amount = TextEditingController();
   final _first = TextEditingController();
-  final _last  = TextEditingController();
+  final _last = TextEditingController();
   final _phone = TextEditingController(text: '+201');
   final _walletPhone = TextEditingController();
+
   String? _error;
   bool _busy = false;
 
@@ -36,75 +41,91 @@ class _TopUpPageState extends ConsumerState<TopUpPage> {
   void initState() {
     super.initState();
     final method = widget.method?.toLowerCase();
+    int initialIndex = 0;
     if (method == 'wallet') {
       _method = _Method.wallet;
+      initialIndex = 1;
     } else if (method == 'fingerprint') {
       _method = _Method.fingerprint;
+      initialIndex = 2;
+    }
+
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: initialIndex,
+    );
+    _tabController.addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    if (!_tabController.indexIsChanging) {
+      setState(() {
+        switch (_tabController.index) {
+          case 0:
+            _method = _Method.card;
+            break;
+          case 1:
+            _method = _Method.wallet;
+            break;
+          case 2:
+            _method = _Method.fingerprint;
+            break;
+        }
+      });
     }
   }
 
   @override
   void dispose() {
-    _amount.dispose(); _first.dispose(); _last.dispose();
-    _phone.dispose(); _walletPhone.dispose();
+    _amount.dispose();
+    _first.dispose();
+    _last.dispose();
+    _phone.dispose();
+    _walletPhone.dispose();
+    _tabController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
     setState(() => _error = null);
-    
-    // Check if KYC is verified first
-    final isKycVerified = await ref.read(isKycVerifiedProvider.future).catchError((_) => false);
-    if (!isKycVerified) {
-      setState(() => _error = 'Complete identity verification first to proceed with top-up.');
-      // Show a dialog and redirect to KYC
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('KYC Verification Required'),
-            content: const Text('You must complete your identity verification before you can perform this operation.'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  if (mounted) context.push('/kyc/status');
-                },
-                child: const Text('Go to KYC'),
-              ),
-            ],
-          ),
-        );
-      }
-      return;
-    }
-    
     final minor = parseMinor(_amount.text);
     if (minor == null || minor <= 0) {
-      setState(() => _error = 'Enter a valid amount.'); return;
+      setState(() => _error = 'Enter a valid amount.');
+      return;
     }
     if (minor > 1000000) {
-      setState(() => _error = 'Max top-up is 10,000 EGP per transaction.'); return;
+      setState(() => _error = 'Max top-up is 10,000 EGP per transaction.');
+      return;
     }
+
     setState(() => _busy = true);
     try {
-      final phoneNumber = ref.read(authControllerProvider).value?.phoneNumber ?? '';
+      final email = ref.read(authControllerProvider).value?.phoneNumber ?? '';
       final r = await ref.read(paymentsApiProvider).checkout(
-        amountMinor: minor,
-        method: _method == _Method.card ? 'card' : _method == _Method.wallet ? 'wallet' : 'fingerprint',
-        firstName: _first.text.trim(),
-        lastName:  _last.text.trim(),
-        email: '$phoneNumber@wallet.local',
-        phoneNumber: _phone.text.trim(),
-        walletPhoneNumber: _method == _Method.wallet ? _walletPhone.text.trim() : null,
-      );
+            amountMinor: minor,
+            method: _method == _Method.card
+                ? 'card'
+                : _method == _Method.wallet
+                    ? 'wallet'
+                    : 'fingerprint',
+            firstName: _first.text.trim(),
+            lastName: _last.text.trim(),
+            email: email,
+            phoneNumber: _phone.text.trim(),
+            walletPhoneNumber:
+                _method == _Method.wallet ? _walletPhone.text.trim() : null,
+          );
+
       if (_method == _Method.fingerprint) {
         if (mounted) {
-          context.go('/fingerprint-auth?paymentIntentId=${Uri.encodeQueryComponent(r.paymentIntentId)}');
+          context.go(
+            '/fingerprint-auth?paymentIntentId=${Uri.encodeQueryComponent(r.paymentIntentId)}',
+          );
         }
         return;
       }
+
       final url = r.iframeUrl ?? r.walletRedirectUrl;
       if (url == null) {
         setState(() => _error = 'Gateway did not return a checkout URL.');
@@ -122,153 +143,182 @@ class _TopUpPageState extends ConsumerState<TopUpPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Top up')),
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        title: const Text('Top up'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text(
-              "Add funds via Paymob. We never see your card details — the iframe is hosted by Paymob.",
-              style: TextStyle(color: AppColors.ink400, fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-            if (_error != null) ...[ErrorCard(message: _error!), const SizedBox(height: 12)],
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Text(
+                'Add funds to your wallet',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Powered by Paymob · Your card details are never stored',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: AppColors.ink400,
+                ),
+              ),
+              const SizedBox(height: 24),
 
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  // Method picker
-                  const Text('Payment method',
-                      style: TextStyle(color: AppColors.ink300, fontSize: 13, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    Expanded(child: _MethodTile(
-                      active: _method == _Method.card,
-                      onTap: () => setState(() => _method = _Method.card),
-                      title: 'Card', sub: 'Visa · Mastercard · Meeza',
-                    )),
-                    const SizedBox(width: 8),
-                    Expanded(child: _MethodTile(
-                      active: _method == _Method.wallet,
-                      onTap: () => setState(() => _method = _Method.wallet),
-                      title: 'Mobile wallet', sub: 'Vodafone · Etisalat · Orange',
-                    )),
-                    const SizedBox(width: 8),
-                    Expanded(child: _MethodTile(
-                      active: _method == _Method.fingerprint,
-                      onTap: () => setState(() => _method = _Method.fingerprint),
-                      title: 'Fingerprint', sub: 'ZK9500 live 10 EGP',
-                    )),
-                  ]),
-                  const SizedBox(height: 16),
+              // Error message
+              if (_error != null) ...[
+                ErrorCard(message: _error!),
+                const SizedBox(height: 12),
+              ],
 
-                  const Text('Amount',
-                      style: TextStyle(color: AppColors.ink300, fontSize: 13, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: _amount,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    style: numTextStyle(fontSize: 26),
-                    decoration: InputDecoration(
-                      hintText: '0.00',
-                      suffixText: 'EGP',
-                      suffixStyle: numTextStyle(color: AppColors.ink400, fontSize: 13),
+              // Tabs (method selector)
+              Container(
+                decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    color: AppTheme.darkTheme.colorScheme.surfaceContainerHigh),
+                child: TabBar(
+                  controller: _tabController,
+                  tabs: const [
+                    Tab(
+                      icon: Icon(Icons.credit_card, size: 20),
+                      text: 'Card',
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(spacing: 8, children: [
-                    for (final v in [50, 100, 200, 500])
-                      ActionChip(
-                        label: Text('$v EGP'),
-                        backgroundColor: Colors.white.withValues(alpha: 0.04),
-                        side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
-                        labelStyle: const TextStyle(color: AppColors.ink300, fontSize: 12),
-                        onPressed: () => _amount.text = v.toStringAsFixed(2),
-                      ),
-                  ]),
-                  const SizedBox(height: 14),
-                  if (_method == _Method.fingerprint)
-                    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text('Fingerprint payments use the ZK9500 device. Live payment is charged at 10 EGP or more.',
-                          style: TextStyle(color: AppColors.ink400, fontSize: 12)),
-                      const SizedBox(height: 10),
-                    ]),
-                  const SizedBox(height: 14),
-
-                  Row(children: [
-                    Expanded(child: AppInput(controller: _first, label: 'First name')),
-                    const SizedBox(width: 10),
-                    Expanded(child: AppInput(controller: _last, label: 'Last name')),
-                  ]),
-                  const SizedBox(height: 14),
-                  AppInput(controller: _phone, label: 'Phone',
-                      keyboardType: TextInputType.phone, hint: '+201001234567'),
-                  if (_method == _Method.wallet) ...[
-                    const SizedBox(height: 14),
-                    AppInput(
-                      controller: _walletPhone,
-                      label: 'Mobile-wallet phone (11 digits)',
-                      keyboardType: TextInputType.phone,
-                      hint: '01001234567',
-                      helper: 'The phone registered with your Vodafone/Etisalat/Orange wallet.',
+                    Tab(
+                      icon: Icon(Icons.account_balance_wallet, size: 20),
+                      text: 'Wallet',
+                    ),
+                    Tab(
+                      icon: Icon(Icons.fingerprint, size: 20),
+                      text: 'Fingerprint',
                     ),
                   ],
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: AppButton(
-                      label: 'Continue to ${_method == _Method.card ? "card" : _method == _Method.wallet ? "mobile wallet" : "fingerprint"}',
-                      onPressed: _submit, loading: _busy, expand: true,
-                    ),
+                  labelColor: AppColors.brandPrimary,
+                  unselectedLabelColor: AppColors.ink500,
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Your wallet will be credited automatically once Paymob confirms the payment.',
-                    style: TextStyle(color: AppColors.ink400, fontSize: 12),
+                  indicator: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ]),
+                  indicatorPadding: const EdgeInsets.symmetric(
+                    vertical: 6,
+                    horizontal: 4,
+                  ),
+                  dividerColor: Colors.transparent,
+                  padding: const EdgeInsets.all(6),
+                ),
               ),
-            ),
-          ]),
-        ),
-      ),
-    );
-  }
-}
+              const SizedBox(height: 20),
 
-class _MethodTile extends StatelessWidget {
-  const _MethodTile({
-    required this.active, required this.onTap, required this.title, required this.sub,
-  });
-  final bool active;
-  final VoidCallback onTap;
-  final String title;
-  final String sub;
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: active
-              ? AppColors.brandPrimary.withValues(alpha: 0.1)
-              : AppColors.ink950.withValues(alpha: 0.4),
-          border: Border.all(
-            color: active
-                ? AppColors.brandPrimary.withValues(alpha: 0.6)
-                : Colors.white.withValues(alpha: 0.06),
+              // Form card
+              Card(
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: AppTheme.darkTheme.colorScheme.outline
+                        .withValues(alpha: 0.2),
+                    width: 1,
+                  ),
+                ),
+                color: AppTheme.darkTheme.colorScheme.surfaceContainer,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Amount
+                      if (_method == _Method.fingerprint)
+                        const InlineAlert(
+                          message:
+                              'Fingerprint payments use the ZK9500 device. Live payment is 10 EGP or more.',
+                          type: AlertType.warning,
+                        ),
+                      const SizedBox(height: 20),
+
+                      // Name fields
+                      Row(
+                        children: [
+                          Expanded(
+                            child: AppInput(
+                              controller: _first,
+                              label: 'First name',
+                              hint: "eg. Ahmed",
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: AppInput(
+                              controller: _last,
+                              label: 'Last name',
+                              hint: "eg. khalid",
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Phone number
+                      AppInput(
+                        controller: _phone,
+                        label: 'Phone',
+                        keyboardType: TextInputType.phone,
+                        hint: '+201001234567',
+                      ),
+
+                      // Wallet phone (conditional)
+                      if (_method == _Method.wallet) ...[
+                        const SizedBox(height: 20),
+                        AppInput(
+                          controller: _walletPhone,
+                          label: 'Wallet phone (11 digits)',
+                          keyboardType: TextInputType.phone,
+                          hint: '01001234567',
+                          helper:
+                              'The phone number linked to your Vodafone/Etisalat/Orange wallet.',
+                        ),
+                      ],
+                      const SizedBox(height: 28),
+
+                      // Submit button
+                      SizedBox(
+                        width: double.infinity,
+                        child: AppButton(
+                          label: _method == _Method.card
+                              ? 'Continue to card'
+                              : _method == _Method.wallet
+                                  ? 'Continue to mobile wallet'
+                                  : 'Continue to fingerprint',
+                          onPressed: _submit,
+                          loading: _busy,
+                          expand: true,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Footer note
+                      const InlineAlert(
+                        message:
+                            'Your wallet will be credited automatically after Paymob confirmation.',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-          borderRadius: BorderRadius.circular(10),
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 2),
-          Text(sub, style: const TextStyle(color: AppColors.ink400, fontSize: 12)),
-        ]),
       ),
     );
   }
