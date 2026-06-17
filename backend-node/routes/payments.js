@@ -1,6 +1,6 @@
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { addOperation } from '../store.js';
+import { addOperation, isUserKycVerified } from '../store.js';
 
 const router = express.Router();
 
@@ -9,6 +9,10 @@ router.post('/checkout', (req, res) => {
   if (!amountMinor || !method || !firstName || !lastName || !email || !phoneNumber) {
     return res.status(400).json({ code: 'INVALID_INPUT', message: 'Required payment fields are missing' });
   }
+  if (!isUserKycVerified(req.user.userId)) {
+    return res.status(403).json({ code: 'KYC_REQUIRED', message: 'KYC verification is required before payment operations.' });
+  }
+
   const allowedMethods = new Set(['card', 'wallet', 'fingerprint']);
   if (!allowedMethods.has(method)) {
     return res.status(400).json({ code: 'INVALID_METHOD', message: 'Payment method must be card, wallet, or fingerprint' });

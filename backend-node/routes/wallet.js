@@ -1,5 +1,5 @@
 import express from 'express';
-import { getWallet, addOperation, getWalletTransactions, getOperations, getUserById, findUserByEmail, findUserByPhone, findUserByWalletId, creditWallet } from '../store.js';
+import { getWallet, addOperation, getWalletTransactions, getOperations, findUserByEmail, findUserByPhone, findUserByWalletId, creditWallet, getKycStatus, isUserKycVerified } from '../store.js';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = express.Router();
@@ -7,7 +7,12 @@ const router = express.Router();
 router.get('/summary', (req, res) => {
   const wallet = getWallet(req.user.userId);
   if (!wallet) return res.status(404).json({ code: 'WALLET_NOT_FOUND', message: 'Wallet not found' });
-  return res.json(wallet);
+  const kyc = getKycStatus(req.user.userId);
+  return res.json({
+    ...wallet,
+    isKycVerified: kyc.isVerified,
+    kycStatus: kyc.status,
+  });
 });
 
 router.get('/transactions', (req, res) => {
@@ -51,6 +56,10 @@ router.post('/transfer', (req, res) => {
   if (!recipientIdentifier || !amountMinor || !reference) {
     return res.status(400).json({ code: 'INVALID_INPUT', message: 'recipientIdentifier, amountMinor and reference are required' });
   }
+  if (!isUserKycVerified(req.user.userId)) {
+    return res.status(403).json({ code: 'KYC_REQUIRED', message: 'KYC verification is required before funds transfers.' });
+  }
+
   const wallet = getWallet(req.user.userId);
   if (!wallet) return res.status(404).json({ code: 'WALLET_NOT_FOUND', message: 'Wallet not found' });
   if (wallet.balanceMinor < amountMinor) {

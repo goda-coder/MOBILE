@@ -13,20 +13,20 @@ class LoginResponse {
     required this.accessToken,
     required this.refreshToken,
     required this.role,
-    required this.email,
+    required this.phoneNumber,
     required this.userId,
   });
   final String accessToken;
   final String refreshToken;
   final Role role;
-  final String email;
+  final String phoneNumber;
   final String userId;
 
   factory LoginResponse.fromJson(Map<String, dynamic> j) => LoginResponse(
         accessToken: j['accessToken'] as String,
         refreshToken: j['refreshToken'] as String,
         role: parseRole((j['role'] ?? 'Customer').toString()),
-        email: (j['email'] ?? '').toString(),
+        phoneNumber: (j['phoneNumber'] ?? '').toString(),
         userId: (j['userId'] ?? '').toString(),
       );
 }

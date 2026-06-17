@@ -16,13 +16,13 @@ const buildTokens = (user) => {
 };
 
 router.post('/login', (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ code: 'INVALID_INPUT', message: 'Email and password are required' });
+  const { phoneNumber, password } = req.body;
+  if (!phoneNumber || !password) {
+    return res.status(400).json({ code: 'INVALID_INPUT', message: 'Phone number and password are required' });
   }
-  const user = findUserByEmail(email);
+  const user = findUserByPhone(phoneNumber);
   if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
-    return res.status(401).json({ code: 'INVALID_CREDENTIALS', message: 'Email or password is incorrect' });
+    return res.status(401).json({ code: 'INVALID_CREDENTIALS', message: 'Phone number or password is incorrect' });
   }
   const tokens = buildTokens(user);
   return res.json({
@@ -62,7 +62,7 @@ router.post('/register', (req, res) => {
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
     role: normalizedRole === 'admin' ? 'Admin' : normalizedRole === 'merchant' ? 'Merchant' : 'Customer',
-    email: user.email,
+    phoneNumber: user.phoneNumber,
     userId: user.userId,
   });
 });
@@ -88,7 +88,7 @@ router.post('/login-fingerprint', (req, res) => {
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
     role: user.role === 'admin' ? 'Admin' : user.role === 'merchant' ? 'Merchant' : 'Customer',
-    email: user.email,
+    phoneNumber: user.phoneNumber,
     userId: user.userId,
   });
 });

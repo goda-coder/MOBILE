@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../api/api_client.dart';
 import '../state/providers.dart';
@@ -48,6 +49,32 @@ class _ScanQrPageState extends ConsumerState<ScanQrPage> {
   Future<void> _pay() async {
     final p = _parsed;
     if (p == null) return;
+    
+    // Check if KYC is verified first
+    final isKycVerified = await ref.read(isKycVerifiedProvider.future).catchError((_) => false);
+    if (!isKycVerified) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('KYC Verification Required'),
+            content: const Text('You must complete your identity verification before you can make payments.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  if (mounted) context.push('/kyc/status');
+                },
+                child: const Text('Go to KYC'),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
+    
     setState(() { _paying = true; _error = null; });
     try {
       final reference = 'qr-${DateTime.now().microsecondsSinceEpoch}';

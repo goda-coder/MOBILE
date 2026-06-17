@@ -58,12 +58,12 @@ class AuthState {
       {this.accessToken,
       this.refreshToken,
       this.role,
-      this.email,
+      this.phoneNumber,
       this.userId});
   final String? accessToken;
   final String? refreshToken;
   final Role? role;
-  final String? email;
+  final String? phoneNumber;
   final String? userId;
   bool get isAuthenticated => accessToken != null && accessToken!.isNotEmpty;
 }
@@ -76,27 +76,27 @@ class AuthController extends AsyncNotifier<AuthState> {
       accessToken: s['access'],
       refreshToken: s['refresh'],
       role: s['role'] == null ? null : parseRole(s['role']!),
-      email: s['email'],
+      phoneNumber: s['phoneNumber'],
       userId: s['userId'],
     );
   }
 
-  Future<void> signIn(String email, String password) async {
+  Future<void> signIn(String phoneNumber, String password) async {
     state = const AsyncLoading();
     try {
-      final r = await ref.read(authApiProvider).login(email, password);
+      final r = await ref.read(authApiProvider).login(phoneNumber, password);
       await ref.read(tokenStoreProvider).setSession(
             access: r.accessToken,
             refresh: r.refreshToken,
             role: r.role.name,
-            email: r.email,
+            phoneNumber: r.phoneNumber,
             userId: r.userId,
           );
       state = AsyncData(AuthState(
         accessToken: r.accessToken,
         refreshToken: r.refreshToken,
         role: r.role,
-        email: r.email,
+        phoneNumber: r.phoneNumber,
         userId: r.userId,
       ));
     } catch (e, st) {
@@ -116,14 +116,14 @@ class AuthController extends AsyncNotifier<AuthState> {
             access: r.accessToken,
             refresh: r.refreshToken,
             role: r.role.name,
-            email: r.email,
+            phoneNumber: r.phoneNumber,
             userId: r.userId,
           );
       state = AsyncData(AuthState(
         accessToken: r.accessToken,
         refreshToken: r.refreshToken,
         role: r.role,
-        email: r.email,
+        phoneNumber: r.phoneNumber,
         userId: r.userId,
       ));
     } catch (e, st) {
@@ -152,14 +152,14 @@ class AuthController extends AsyncNotifier<AuthState> {
             access: r.accessToken,
             refresh: r.refreshToken,
             role: r.role.name,
-            email: r.email,
+            phoneNumber: r.phoneNumber,
             userId: r.userId,
           );
       state = AsyncData(AuthState(
         accessToken: r.accessToken,
         refreshToken: r.refreshToken,
         role: r.role,
-        email: r.email,
+        phoneNumber: r.phoneNumber,
         userId: r.userId,
       ));
     } catch (e, st) {
@@ -181,3 +181,24 @@ class AuthController extends AsyncNotifier<AuthState> {
 
 final authControllerProvider =
     AsyncNotifierProvider<AuthController, AuthState>(AuthController.new);
+
+// -- KYC Protection --------------------------------------------------
+/// Returns true if KYC is verified, false otherwise
+final isKycVerifiedProvider = FutureProvider.autoDispose((ref) async {
+  try {
+    final summary = await ref.watch(walletApiProvider).summary();
+    return summary.isKycVerified;
+  } catch (_) {
+    return false;
+  }
+});
+
+/// Get user's KYC status
+final kycStatusProvider = FutureProvider.autoDispose((ref) async {
+  try {
+    final summary = await ref.watch(walletApiProvider).summary();
+    return summary.kycStatus;
+  } catch (_) {
+    return 'None';
+  }
+});

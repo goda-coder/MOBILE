@@ -27,7 +27,7 @@ class ProfilePage extends ConsumerWidget {
             Card(child: Padding(
               padding: const EdgeInsets.all(18),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                _Row('Email', auth?.email ?? '—'),
+                _Row('Phone Number', auth?.phoneNumber ?? '—'),
                 _Row('User ID', auth?.userId ?? '—', mono: true),
                 _Row('Role', _roleLabel(auth?.role), pill: true,
                     tone: PillTone.info),

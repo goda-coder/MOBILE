@@ -7,11 +7,11 @@ class AuthApi {
   AuthApi(this._c);
   final ApiClient _c;
 
-  Future<LoginResponse> login(String email, String password) async {
+  Future<LoginResponse> login(String phoneNumber, String password) async {
     try {
       final r = await _c.dio.post(
         '/api/v1/auth/login',
-        data: {'email': email, 'password': password},
+        data: {'phoneNumber': phoneNumber, 'password': password},
         options: Options(
           extra: {'skipAuth': true},
           connectTimeout: const Duration(seconds: 30),

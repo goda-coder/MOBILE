@@ -18,7 +18,7 @@ abstract final class _Keys {
   static const access  = 'wallet.accessToken';
   static const refresh = 'wallet.refreshToken';
   static const role    = 'wallet.role';
-  static const email   = 'wallet.email';
+  static const phoneNumber = 'wallet.phoneNumber';
   static const userId  = 'wallet.userId';
 }
 
@@ -40,13 +40,13 @@ class TokenStore {
     required String access,
     required String refresh,
     required String role,
-    required String email,
+    required String phoneNumber,
     required String userId,
   }) async {
     await _storage.write(key: _Keys.access,  value: access);
     await _storage.write(key: _Keys.refresh, value: refresh);
     await _storage.write(key: _Keys.role,    value: role);
-    await _storage.write(key: _Keys.email,   value: email);
+    await _storage.write(key: _Keys.phoneNumber,   value: phoneNumber);
     await _storage.write(key: _Keys.userId,  value: userId);
   }
 
@@ -54,7 +54,7 @@ class TokenStore {
     'access':  await _storage.read(key: _Keys.access),
     'refresh': await _storage.read(key: _Keys.refresh),
     'role':    await _storage.read(key: _Keys.role),
-    'email':   await _storage.read(key: _Keys.email),
+    'phoneNumber':   await _storage.read(key: _Keys.phoneNumber),
     'userId':  await _storage.read(key: _Keys.userId),
   };
 
@@ -62,7 +62,7 @@ class TokenStore {
     await _storage.delete(key: _Keys.access);
     await _storage.delete(key: _Keys.refresh);
     await _storage.delete(key: _Keys.role);
-    await _storage.delete(key: _Keys.email);
+    await _storage.delete(key: _Keys.phoneNumber);
     await _storage.delete(key: _Keys.userId);
   }
 }

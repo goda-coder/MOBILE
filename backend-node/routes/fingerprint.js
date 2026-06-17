@@ -1,6 +1,6 @@
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { attachFingerprintToUser, getUserIdByFingerprintId, creditWallet, addOperation } from '../store.js';
+import { attachFingerprintToUser, getUserIdByFingerprintId, creditWallet, addOperation, isUserKycVerified } from '../store.js';
 
 const router = express.Router();
 
@@ -32,9 +32,9 @@ router.post('/authenticate', (req, res) => {
   }
 
   const userId = getUserIdByFingerprintId(fingerprintId);
-  if (!userId || userId !== intent.userId) {
+  if (!userId || userId !== intent.userId || !isUserKycVerified(userId)) {
     intent.status = 'FAILED';
-    return res.status(401).json({ success: false, status: intent.status, message: 'Fingerprint does not belong to the payment user' });
+    return res.status(401).json({ success: false, status: intent.status, message: 'Fingerprint does not belong to the payment user or KYC is not verified' });
   }
 
   if (intent.state !== 'SETTLED') {

@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -70,6 +71,31 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
       setState(() => _error = 'Submission failed.');
     } finally {
       if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<ImageData?> _pickImageFromDevice() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return null;
+      final file = result.files.first;
+      final bytes = file.bytes;
+      if (bytes == null) return null;
+      return ImageData(bytes, name: file.name);
+    } catch (e) {
+      setState(() => _error = 'Failed to pick image: $e');
+      return null;
+    }
+  }
+
+  Future<void> _uploadFromDevice(ValueChanged<ImageData> onCaptured) async {
+    final image = await _pickImageFromDevice();
+    if (image != null && mounted) {
+      setState(() => onCaptured(image));
     }
   }
 
@@ -148,6 +174,7 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
           front: false,
           existing: _idFront,
           onCaptured: (f) => setState(() => _idFront = f),
+          onUpload: () => _uploadFromDevice((f) => _idFront = f),
           onRetake: () => setState(() => _idFront = null),
           onNext: () => _idFront != null ? _next() : null,
           onBack: _back,
@@ -161,6 +188,7 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
           front: false,
           existing: _idBack,
           onCaptured: (f) => setState(() => _idBack = f),
+          onUpload: () => _uploadFromDevice((f) => _idBack = f),
           onRetake: () => setState(() => _idBack = null),
           onNext: () => _idBack != null ? _next() : null,
           onBack: _back,
@@ -174,6 +202,7 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
           front: true,
           existing: _selfie,
           onCaptured: (f) => setState(() => _selfie = f),
+          onUpload: () => _uploadFromDevice((f) => _selfie = f),
           onRetake: () => setState(() => _selfie = null),
           onNext: () => _selfie != null ? _next() : null,
           onBack: _back,
@@ -201,7 +230,7 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
           ),
           const SizedBox(height: 16),
           Wrap(spacing: 8, children: [
-            AppButton(label: 'Submit for verification',
+            AppButton(label: 'Send to admin for review',
               onPressed: _idFront != null && _selfie != null ? _submit : null,
               loading: _submitting,
             ),
@@ -229,8 +258,8 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
           const SizedBox(height: 8),
           Text(
             verified
-                ? 'Face match: ${(_resultMatch ?? 0).round()}%. Your wallet now has full features.'
-                : 'A human reviewer will look at your submission within 24 hours.',
+                ? 'Face match: ${(_resultMatch ?? 0).round()}%. Your wallet now has full features and all operations are open.'
+                : 'Your KYC has been sent to the admin for review. You can perform transfers and fingerprint payments once it is approved.',
             textAlign: TextAlign.center,
             style: const TextStyle(color: AppColors.ink400),
           ),
@@ -276,6 +305,7 @@ class _CapStep extends StatelessWidget {
     required this.faceGuide, required this.front,
     required this.existing,
     required this.onCaptured,
+    required this.onUpload,
     required this.onRetake,
     required this.onNext, required this.onBack,
   });
@@ -284,6 +314,7 @@ class _CapStep extends StatelessWidget {
   final bool faceGuide; final bool front;
   final ImageData? existing;
   final ValueChanged<ImageData> onCaptured;
+  final Future<void> Function()? onUpload;
   final VoidCallback onRetake;
   final VoidCallback? onNext;
   final VoidCallback onBack;
@@ -319,6 +350,13 @@ class _CapStep extends StatelessWidget {
         ]),
       ] else ...[
         CameraCapture(faceGuide: faceGuide, front: front, onCaptured: onCaptured),
+        const SizedBox(height: 8),
+        AppButton(
+          label: 'Upload from device',
+          icon: Icons.upload_file,
+          variant: AppButtonVariant.ghost,
+          onPressed: onUpload,
+        ),
         const SizedBox(height: 8),
         AppButton(label: 'Back', variant: AppButtonVariant.ghost, onPressed: onBack),
       ],

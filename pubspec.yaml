@@ -20,6 +20,7 @@ dependencies:
   # HTTP + auth
   dio: ^5.7.0
   flutter_secure_storage: ^9.2.2
+  http: ^1.6.0
 
   # Camera & media (KYC selfie + ID capture + liveness frames)
   camera: ^0.11.0+2
@@ -35,6 +36,7 @@ dependencies:
 
   # Misc
   url_launcher: ^6.3.1    # open Paymob iframe in an in-app browser
+  file_picker: ^5.4.0
 
   cupertino_icons: ^1.0.8
 

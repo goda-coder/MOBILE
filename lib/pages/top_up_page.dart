@@ -52,6 +52,34 @@ class _TopUpPageState extends ConsumerState<TopUpPage> {
 
   Future<void> _submit() async {
     setState(() => _error = null);
+    
+    // Check if KYC is verified first
+    final isKycVerified = await ref.read(isKycVerifiedProvider.future).catchError((_) => false);
+    if (!isKycVerified) {
+      setState(() => _error = 'Complete identity verification first to proceed with top-up.');
+      // Show a dialog and redirect to KYC
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('KYC Verification Required'),
+            content: const Text('You must complete your identity verification before you can perform this operation.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  if (mounted) context.push('/kyc/status');
+                },
+                child: const Text('Go to KYC'),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
+    
     final minor = parseMinor(_amount.text);
     if (minor == null || minor <= 0) {
       setState(() => _error = 'Enter a valid amount.'); return;
@@ -61,13 +89,13 @@ class _TopUpPageState extends ConsumerState<TopUpPage> {
     }
     setState(() => _busy = true);
     try {
-      final email = ref.read(authControllerProvider).value?.email ?? '';
+      final phoneNumber = ref.read(authControllerProvider).value?.phoneNumber ?? '';
       final r = await ref.read(paymentsApiProvider).checkout(
         amountMinor: minor,
         method: _method == _Method.card ? 'card' : _method == _Method.wallet ? 'wallet' : 'fingerprint',
         firstName: _first.text.trim(),
         lastName:  _last.text.trim(),
-        email: email,
+        email: '$phoneNumber@wallet.local',
         phoneNumber: _phone.text.trim(),
         walletPhoneNumber: _method == _Method.wallet ? _walletPhone.text.trim() : null,
       );

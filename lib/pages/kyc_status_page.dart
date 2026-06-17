@@ -72,6 +72,24 @@ class KycStatusPage extends ConsumerWidget {
                       _Row('Reason', s.decisionReason!, multiline: true),
                   ]),
                 )),
+                if (s.status == 'Pending') ...[
+                  const SizedBox(height: 16),
+                  Card(child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      const Text('Pending review', style: TextStyle(fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 8),
+                      const Text('Your submission has been sent to the admin for manual review. Please check back later for approval.',
+                          style: TextStyle(color: AppColors.ink400)),
+                      const SizedBox(height: 12),
+                      AppButton(
+                        label: 'Refresh status',
+                        onPressed: () => ref.invalidate(_statusProvider),
+                        variant: AppButtonVariant.ghost,
+                      ),
+                    ]),
+                  )),
+                ],
                 if (s.warnings != null && s.warnings!.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Card(child: Padding(

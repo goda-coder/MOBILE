@@ -21,6 +21,8 @@ router.post('/submit', upload.fields([
   }
   const kycRequest = createKycRequest({
     userId: req.user.userId,
+    fullName: req.user.fullName,
+    phoneNumber: req.user.phoneNumber,
     documentType,
     status: 'Pending',
     matchPercentage: 0.0,

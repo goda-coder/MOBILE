@@ -4,13 +4,14 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 
 class ImageData {
-  ImageData._(this._file, this._bytes);
+  ImageData._(this._file, this._bytes, this.name);
 
   final File? _file;
   final Uint8List? _bytes;
+  final String? name;
 
-  factory ImageData.fromFile(File f) => ImageData._(f, null);
-  factory ImageData.fromBytes(Uint8List b) => ImageData._(null, b);
+  factory ImageData.fromFile(File f) => ImageData._(f, null, null);
+  factory ImageData.fromBytes(Uint8List b, {String? name}) => ImageData._(null, b, name);
 
   Future<Uint8List> getBytes() async {
     if (_bytes != null) return _bytes;
@@ -23,5 +24,5 @@ class ImageData {
     return MultipartFile.fromBytes(bytes, filename: filename);
   }
 
-  String? get path => _file?.path;
+  String? get path => _file?.path ?? name;
 }

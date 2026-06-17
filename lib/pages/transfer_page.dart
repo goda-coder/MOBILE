@@ -33,6 +33,34 @@ class _TransferPageState extends ConsumerState<TransferPage> {
 
   Future<void> _submit() async {
     setState(() { _error = null; _success = null; });
+    
+    // Check if KYC is verified first
+    final isKycVerified = await ref.read(isKycVerifiedProvider.future).catchError((_) => false);
+    if (!isKycVerified) {
+      setState(() => _error = 'Complete identity verification first to proceed with transfer.');
+      // Show a dialog and redirect to KYC
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('KYC Verification Required'),
+            content: const Text('You must complete your identity verification before you can perform this operation.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  if (mounted) context.push('/kyc/status');
+                },
+                child: const Text('Go to KYC'),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
+    
     final minor = parseMinor(_amount.text);
     if (minor == null || minor <= 0) {
       setState(() => _error = 'Enter a valid amount (e.g. 25.00).');

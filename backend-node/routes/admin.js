@@ -17,6 +17,7 @@ router.get('/kyc/pending', (req, res) => {
     id: item.id,
     userId: item.userId,
     fullName: item.fullName || 'Unknown',
+    phoneNumber: item.phoneNumber || 'Unknown',
     matchPercentage: item.matchPercentage,
     submittedAt: item.submittedAt,
     warnings: item.warnings,

@@ -7,6 +7,8 @@ class ImageData {
   final Uint8List bytes;
   final String? name;
 
+  factory ImageData.fromBytes(Uint8List b, {String? name}) => ImageData(b, name: name);
+
   Future<Uint8List> getBytes() async => bytes;
 
   Future<MultipartFile> toMultipart(String filename) async {

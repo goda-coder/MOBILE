@@ -9,7 +9,7 @@ abstract final class AppColors {
   static const brandAccent    = Color(0xFF77E7FF); // aqua
 
   // Surface ladder — darkest = ink950, lightest = ink100
-  static const ink950 = Color(0xFF008080);
+  static const ink950 = Color(0xFF25A69A);
   static const ink900 = Color(0xFF0C1323);
   static const ink800 = Color(0xFF17213A);
   static const ink700 = Color(0xFF273556);

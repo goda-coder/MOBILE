@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../state/providers.dart';
@@ -24,7 +25,32 @@ class _MerchantQrPageState extends ConsumerState<MerchantQrPage> {
   @override
   void dispose() { _amount.dispose(); _note.dispose(); super.dispose(); }
 
-  void _generate() {
+  Future<void> _generate() async {
+    // Check if KYC is verified first
+    final isKycVerified = await ref.read(isKycVerifiedProvider.future).catchError((_) => false);
+    if (!isKycVerified) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('KYC Verification Required'),
+            content: const Text('You must complete your identity verification before you can generate merchant QR codes.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  if (mounted) context.push('/kyc/status');
+                },
+                child: const Text('Go to KYC'),
+              ),
+            ],
+          ),
+        );
+      }
+      return;
+    }
+    
     final minor = parseMinor(_amount.text);
     if (minor == null || minor <= 0) return;
     final merchantId = ref.read(authControllerProvider).value?.userId ?? 'unknown';

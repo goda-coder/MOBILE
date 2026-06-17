@@ -31,7 +31,7 @@ ThemeData buildAppTheme() {
     useMaterial3: true,
     brightness: Brightness.dark,
     colorScheme: colorScheme,
-    scaffoldBackgroundColor: const Color(0XFF008080),
+    scaffoldBackgroundColor: const Color(0XFF25A69A),
     textTheme: textTheme,
     appBarTheme: AppBarTheme(
       backgroundColor: AppColors.ink950,

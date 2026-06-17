@@ -16,24 +16,24 @@ class LoginPage extends ConsumerStatefulWidget {
 }
 
 class _LoginPageState extends ConsumerState<LoginPage> {
-  static const _adminEmail = 'admin@wallet.local';
-  static const _merchantEmail = 'merchant@wallet.local';
+  static const _adminPhone = '+201001234567';
+  static const _merchantPhone = '+201101234567';
   static const _seedPassword = 'Admin1234!';
 
-  final _email = TextEditingController();
+  final _phone = TextEditingController();
   final _password = TextEditingController();
   String? _error;
   bool _busy = false;
 
   @override
   void dispose() {
-    _email.dispose(); _password.dispose();
+    _phone.dispose(); _password.dispose();
     super.dispose();
   }
 
-  Future<void> _quickLogin(String email, String password) async {
+  Future<void> _quickLogin(String phone, String password) async {
     if (_busy) return;
-    _email.text = email;
+    _phone.text = phone;
     _password.text = password;
     await _submit();
   }
@@ -42,7 +42,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     setState(() { _error = null; _busy = true; });
     try {
       await ref.read(authControllerProvider.notifier)
-          .signIn(_email.text.trim(), _password.text);
+          .signIn(_phone.text.trim(), _password.text);
       if (mounted) context.go('/');
     } on ApiError catch (e) {
       setState(() => _error = e.message);
@@ -88,10 +88,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               ],
 
               AppInput(
-                controller: _email, label: 'Email',
-                keyboardType: TextInputType.emailAddress,
-                autofillHints: const [AutofillHints.email],
-                hint: 'you@example.com',
+                controller: _phone, label: 'Phone Number',
+                keyboardType: TextInputType.phone,
+                autofillHints: const [AutofillHints.telephoneNumber],
+                hint: '+20-1XX-XXX-XXXX',
               ),
               const SizedBox(height: 14),
               AppInput(
@@ -121,7 +121,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   child: AppButton(
                     label: 'Admin login',
                     variant: AppButtonVariant.ghost,
-                    onPressed: _busy ? null : () => _quickLogin(_adminEmail, _seedPassword),
+                    onPressed: _busy ? null : () => _quickLogin(_adminPhone, _seedPassword),
                     expand: true,
                   ),
                 ),
@@ -130,7 +130,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   child: AppButton(
                     label: 'Merchant login',
                     variant: AppButtonVariant.ghost,
-                    onPressed: _busy ? null : () => _quickLogin(_merchantEmail, _seedPassword),
+                    onPressed: _busy ? null : () => _quickLogin(_merchantPhone, _seedPassword),
                     expand: true,
                   ),
                 ),

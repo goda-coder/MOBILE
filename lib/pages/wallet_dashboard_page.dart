@@ -25,7 +25,7 @@ class WalletDashboardPage extends ConsumerWidget {
     final summary = ref.watch(_summaryProvider);
     final txs = ref.watch(_txProvider);
     final auth = ref.watch(authControllerProvider).value;
-    final email = auth?.email;
+    final phoneNumber = auth?.phoneNumber;
     final role = auth?.role;
 
     return SafeArea(
@@ -51,7 +51,7 @@ class WalletDashboardPage extends ConsumerWidget {
                               letterSpacing: 2,
                               fontSize: 11)),
                       const SizedBox(height: 2),
-                      Text(email ?? 'there',
+                      Text(phoneNumber ?? 'there',
                           style: const TextStyle(
                               fontSize: 20, fontWeight: FontWeight.w600)),
                     ],

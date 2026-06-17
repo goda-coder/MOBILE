@@ -132,11 +132,13 @@ for (const user of seedUsers) {
   if (!findUserByEmail(user.email)) createUser(user);
 }
 
-const createKycRequest = ({ userId, documentType, status, matchPercentage, warnings }) => {
+const createKycRequest = ({ userId, fullName, phoneNumber, documentType, status, matchPercentage, warnings }) => {
   const id = uuidv4();
   const request = {
     id,
     userId,
+    fullName: fullName ?? 'Unknown',
+    phoneNumber: phoneNumber ?? 'Unknown',
     documentType,
     status,
     matchPercentage,
@@ -149,9 +151,11 @@ const createKycRequest = ({ userId, documentType, status, matchPercentage, warni
   return request;
 };
 
+const getLatestKycRequest = (userId) => [...kycRequests.values()].filter((item) => item.userId === userId).pop();
+
 const getKycStatus = (userId) => {
-  const last = [...kycRequests.values()].filter((item) => item.userId === userId).pop();
-  if (!last) return { isVerified: false, status: 'None' };
+  const last = getLatestKycRequest(userId);
+  if (!last) return { isVerified: false, status: 'None', matchPercentage: 0.0, warnings: [], submittedAt: null, decidedAt: null, decisionReason: null };
   return {
     isVerified: last.status === 'Verified',
     status: last.status,
@@ -162,6 +166,8 @@ const getKycStatus = (userId) => {
     decisionReason: last.decisionReason,
   };
 };
+
+const isUserKycVerified = (userId) => getLatestKycRequest(userId)?.status === 'Verified';
 
 const getPendingKyc = () => [...kycRequests.values()].filter((item) => item.status === 'Pending');
 const updateKycRequest = (id, updates) => {
@@ -191,6 +197,7 @@ export {
   getChatConversations,
   createKycRequest,
   getKycStatus,
+  isUserKycVerified,
   getPendingKyc,
   updateKycRequest,
   attachFingerprintToUser,

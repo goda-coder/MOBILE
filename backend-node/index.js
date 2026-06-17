@@ -7,6 +7,7 @@ import paymentsRouter from './routes/payments.js';
 import kycRouter from './routes/kyc.js';
 import adminRouter from './routes/admin.js';
 import fingerprintRouter from './routes/fingerprint.js';
+import fingerprintDeviceRouter from './routes/fingerprintRoutes.js';
 import chatRouter from './routes/chat.js';
 import { authenticate } from './middleware/auth.js';
 
@@ -17,6 +18,8 @@ const port = process.env.PORT || 8081;
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.use('/api/fingerprint', fingerprintDeviceRouter);
 
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/wallet', authenticate, walletRouter);
