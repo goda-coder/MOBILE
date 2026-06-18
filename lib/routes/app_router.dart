@@ -6,8 +6,8 @@ import 'package:wallet/pages/on_boarding_page.dart';
 import '../models/api_models.dart';
 import '../pages/admin_kyc_review_page.dart';
 import '../pages/chat_page.dart';
+import '../pages/enable_biometrics_page.dart';
 import '../pages/fingerprint_auth_page.dart';
-import '../pages/fingerprint_login_page.dart';
 import '../pages/kyc_liveness_page.dart';
 import '../pages/kyc_status_page.dart';
 import '../pages/kyc_submit_page.dart';
@@ -33,7 +33,6 @@ const _public = {
   '/register',
   '/payment-success',
   '/payment-failure',
-  '/fingerprint-login'
 };
 
 /// Paths that require a particular role beyond authentication.
@@ -60,8 +59,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // Not authed + private route → /login
       if (!isAuthed && !isPublic) return '/login';
-      // Authed + on /login or /register → /
-      if (isAuthed && (loc == '/login' || loc == '/register')) return '/';
+      // Not authed + on onboarding but already onboarded → /login
+      if (!isAuthed && loc == '/onboarding') {
+        final hasOnboarded = ref.read(hasOnboardedProvider);
+        if (hasOnboarded) return '/login';
+      }
+      // Authed + on /login or /register → redirect
+      if (isAuthed && loc == '/login') return '/';
+      if (isAuthed && loc == '/register') {
+        final pending = ref.read(pendingBiometricCredentialsProvider);
+        if (pending != null) return '/enable-biometrics';
+        return '/';
+      }
       // Authed but wrong role
       if (isAuthed && !_isAllowed(loc, auth?.role)) return '/';
       return null;
@@ -72,8 +81,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login', builder: (_, __) => const LoginPage()),
       GoRoute(path: '/register', builder: (_, __) => const RegisterPage()),
       GoRoute(
-          path: '/fingerprint-login',
-          builder: (_, __) => const FingerprintLoginPage()),
+          path: '/enable-biometrics',
+          builder: (_, __) {
+            final pending = ref.read(pendingBiometricCredentialsProvider);
+            return EnableBiometricsPage(
+              phone: pending?['phone'],
+              password: pending?['password'],
+            );
+          }),
       GoRoute(
           path: '/payment-success',
           builder: (_, __) => const PaymentSuccessPage()),
@@ -141,6 +156,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 class _RouterRefresh extends ChangeNotifier {
   _RouterRefresh(this._ref) {
     _ref.listen(authControllerProvider, (_, __) => notifyListeners());
+    _ref.listen(hasOnboardedProvider, (_, __) => notifyListeners());
   }
   // ignore: unused_field
   final Ref _ref;

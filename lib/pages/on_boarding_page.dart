@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lottie/lottie.dart';
 import 'package:wallet/widgets/app_button.dart';
+import '../state/providers.dart';
+import '../theme/colors.dart';
 
-class OnBoardingPage extends StatefulWidget {
+class OnBoardingPage extends ConsumerStatefulWidget {
   const OnBoardingPage({super.key});
 
   @override
-  State<OnBoardingPage> createState() => _OnBoardingPageState();
+  ConsumerState<OnBoardingPage> createState() => _OnBoardingPageState();
 }
 
 class OnBoardingSlide {
@@ -61,7 +64,7 @@ class OnBoardingSlideWidget extends StatelessWidget {
   }
 }
 
-class _OnBoardingPageState extends State<OnBoardingPage>
+class _OnBoardingPageState extends ConsumerState<OnBoardingPage>
     with TickerProviderStateMixin {
   static const List<OnBoardingSlide> _slides = [
     OnBoardingSlide(
@@ -202,13 +205,38 @@ class _OnBoardingPageState extends State<OnBoardingPage>
                 bottom: 0,
                 left: 0,
                 right: 0,
-                child: Row(
-                  spacing: 12.0,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: AppButton(
-                        onPressed: () => context.go('/register'),
-                        label: "Create Account",
+                    Row(
+                      spacing: 12.0,
+                      children: [
+                        Expanded(
+                          child: AppButton(
+                            onPressed: () async {
+                              ref.read(hasOnboardedProvider.notifier).set(true);
+                              await ref.read(secureStorageProvider).write(key: 'has_onboarded', value: 'true');
+                              if (mounted) context.go('/register');
+                            },
+                            label: "Create Account",
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      onPressed: () async {
+                        ref.read(hasOnboardedProvider.notifier).set(true);
+                        await ref.read(secureStorageProvider).write(key: 'has_onboarded', value: 'true');
+                        if (mounted) context.go('/login');
+                      },
+                      child: const Text(
+                        'Already have an account? Sign in',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.brandPrimary,
+                        ),
                       ),
                     ),
                   ],

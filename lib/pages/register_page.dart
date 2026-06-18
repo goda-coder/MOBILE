@@ -38,6 +38,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       _error = null;
       _busy = true;
     });
+    // Store pending credentials so the router redirect picks them up
+    ref.read(pendingBiometricCredentialsProvider.notifier).set(
+      {'phone': _phone.text.trim(), 'password': _pw.text},
+    );
     try {
       await ref.read(authControllerProvider.notifier).register(
             fullName: _name.text.trim(),
@@ -46,7 +50,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
             password: _pw.text,
             role: _role,
           );
-      if (mounted) context.go('/');
+      if (mounted) context.go('/enable-biometrics');
     } on ApiError catch (e) {
       setState(() => _error = e.message);
     } catch (_) {

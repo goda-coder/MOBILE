@@ -25,6 +25,26 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _password = TextEditingController();
   String? _error;
   bool _busy = false;
+  bool _autoAuthPrompted = false;
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  void _autoAuthenticate() async {
+    if (_autoAuthPrompted || _busy) return;
+    final bioState = ref.read(biometricControllerProvider);
+    if (bioState.isBiometricEnabled) {
+      _autoAuthPrompted = true;
+      final success = await ref
+          .read(biometricControllerProvider.notifier)
+          .authenticateAndSignIn();
+      if (success && mounted) {
+        context.go('/');
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -61,6 +81,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(biometricControllerProvider, (previous, next) {
+      if (next.isBiometricEnabled && !next.isLoading) {
+        _autoAuthenticate();
+      }
+    });
+
     final apiBaseUrl = ref.watch(apiBaseUrlProvider);
     return Scaffold(
       body: SafeArea(
@@ -125,12 +151,27 @@ class _LoginPageState extends ConsumerState<LoginPage> {
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
-                child: AppButton(
-                  label: 'Login with fingerprint',
-                  variant: AppButtonVariant.ghost,
-                  onPressed:
-                      _busy ? null : () => context.go('/fingerprint-login'),
-                  expand: true,
+                child: Consumer(
+                  builder: (context, ref, _) {
+                    final bioState = ref.watch(biometricControllerProvider);
+                    final canLogin = bioState.isBiometricEnabled;
+
+                    return AppButton(
+                      label: canLogin
+                          ? 'Login with fingerprint'
+                          : 'Biometric login unavailable',
+                      variant: AppButtonVariant.ghost,
+                      onPressed: _busy || !canLogin
+                          ? null
+                          : () async {
+                              final success = await ref
+                                  .read(biometricControllerProvider.notifier)
+                                  .authenticateAndSignIn();
+                              if (success && mounted) context.go('/');
+                            },
+                      expand: true,
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 12),

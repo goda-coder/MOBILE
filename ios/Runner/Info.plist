@@ -70,6 +70,8 @@
 		<string>The wallet uses your camera for identity verification and to scan QR codes for payments.</string>
 		<key>NSMicrophoneUsageDescription</key>
 		<string>Microphone access isn't actively used but is requested by the camera package.</string>
+		<key>NSFaceIDUsageDescription</key>
+		<string>This app requires Face ID permission to authenticate and unlock your account.</string>
 		<key>io.flutter.embedded_views_preview</key>
 		<true/>
 	</dict>
