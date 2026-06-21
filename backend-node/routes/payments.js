@@ -1,11 +1,14 @@
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { addOperation, isUserKycVerified } from '../store.js';
+// تم إضافة getTransaction للتحقق من حالة المعاملة الفعلية
+import { addOperation, isUserKycVerified, getTransaction } from '../store.js'; 
+import * as paymentController from '../controllers/paymentController.js';
 
 const router = express.Router();
 
 router.post('/checkout', (req, res) => {
   const { amountMinor, method, firstName, lastName, email, phoneNumber, currency, walletPhoneNumber } = req.body;
+  
   if (!amountMinor || !method || !firstName || !lastName || !email || !phoneNumber) {
     return res.status(400).json({ code: 'INVALID_INPUT', message: 'Required payment fields are missing' });
   }
@@ -26,6 +29,7 @@ router.post('/checkout', (req, res) => {
     const intentId = uuidv4();
     const orderRef = 'FP-' + uuidv4().slice(0, 8).toUpperCase();
     if (!global.paymentIntents) global.paymentIntents = new Map();
+    
     global.paymentIntents.set(intentId, {
       id: intentId,
       orderReference: orderRef,
@@ -38,6 +42,7 @@ router.post('/checkout', (req, res) => {
       paymentNote: 'Authenticate using ZK9500 fingerprint reader to complete this payment.',
       deviceAuthRequired: true,
     });
+    
     addOperation({
       userId: req.user.userId,
       type: 'payment_intent',
@@ -84,5 +89,25 @@ router.get('/status/:paymentIntentId', (req, res) => {
     paymentNote: intent.paymentNote,
   });
 });
+
+// --- المسارات الجديدة للربط بنظام البصمة والدفع الفوري ---
+
+// 1. مسار مراقبة حالة الـ Transaction الفعلية (عشان الـ Flutter Service تستخدمه)
+router.get('/transaction-status/:transactionId', (req, res) => {
+  const { transactionId } = req.params;
+  const tx = getTransaction(transactionId);
+  if (!tx) {
+    return res.status(404).json({ code: 'NOT_FOUND', message: 'Transaction not found' });
+  }
+  return res.json({
+    transaction_id: tx.id,
+    status: tx.status, // هيرجع PENDING أو SUCCESS أو FAILED
+    completed_at: tx.completedAt
+  });
+});
+
+// 2. مسارات تهيئة وتأكيد الدفع
+router.post('/initiate', paymentController.initiate);
+router.post('/confirm', paymentController.confirm);
 
 export default router;

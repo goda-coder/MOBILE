@@ -24,6 +24,7 @@ app.use('/api/fingerprint', fingerprintDeviceRouter);
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/wallet', authenticate, walletRouter);
 app.use('/api/v1/payments', authenticate, paymentsRouter);
+app.use('/api/payments', authenticate, paymentsRouter);
 app.use('/api/v1/kyc', authenticate, kycRouter);
 app.use('/api/v1/admin', authenticate, adminRouter);
 app.use('/api/v1/fingerprint', authenticate, fingerprintRouter);

@@ -103,6 +103,42 @@ const getChatConversations = () => {
   }));
 };
 
+const transactions = new Map();
+let transferLock = false;
+
+const createTransaction = ({ merchantId, targetUserId, amount }) => {
+  const id = uuidv4();
+  const tx = { id, merchantId, targetUserId, amount, status: 'PENDING', createdAt: new Date().toISOString(), completedAt: null };
+  transactions.set(id, tx);
+  return tx;
+};
+
+const getTransaction = (id) => transactions.get(id);
+
+const updateTransactionStatus = (id, status) => {
+  const tx = transactions.get(id);
+  if (!tx) return null;
+  tx.status = status;
+  if (status === 'SUCCESS' || status === 'FAILED') tx.completedAt = new Date().toISOString();
+  return tx;
+};
+
+const atomicTransfer = (fromUserId, toUserId, amountMinor) => {
+  if (transferLock) throw new Error('Concurrent transfer detected');
+  transferLock = true;
+  try {
+    const fromWallet = wallets.get(fromUserId);
+    const toWallet = wallets.get(toUserId);
+    if (!fromWallet || !toWallet) throw new Error('Wallet not found');
+    if (fromWallet.balanceMinor < amountMinor) throw new Error('Insufficient funds');
+    fromWallet.balanceMinor -= amountMinor;
+    toWallet.balanceMinor += amountMinor;
+    return { fromWallet, toWallet };
+  } finally {
+    transferLock = false;
+  }
+};
+
 const attachFingerprintToUser = (fingerprintId, userId, deviceModel = 'ZK9500') => {
   const record = {
     fingerprintId,
@@ -204,4 +240,8 @@ export {
   getUserIdByFingerprintId,
   getFingerprintRecord,
   creditWallet,
+  createTransaction,
+  getTransaction,
+  updateTransactionStatus,
+  atomicTransfer,
 };
