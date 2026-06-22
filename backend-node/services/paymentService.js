@@ -4,8 +4,7 @@ import {
   getTransaction,
   updateTransactionStatus,
   atomicTransfer,
-  getUserById,
-  findUserByPhone, // <-- استيراد الدالة من الـ Store
+  findUserByPhone,
   addOperation,
 } from '../store.js';
 import { runFraudCheck } from '../middleware/fraudDetection.js';
@@ -13,7 +12,7 @@ import { runFraudCheck } from '../middleware/fraudDetection.js';
 const JWT_SECRET = process.env.JWT_SECRET || 'secret';
 
 export const initiatePayment = ({ merchantId, targetUserId, amountMinor }) => { // استخدام amountMinor حسب الـ Documentation
-  const merchant = getUserById(merchantId);
+  const merchant = findUserByPhone(merchantId);
   if (!merchant || merchant.role !== 'merchant') {
     const err = new Error('Merchant not found or invalid role');
     err.status = 404;
