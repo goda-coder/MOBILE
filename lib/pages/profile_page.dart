@@ -6,6 +6,7 @@ import '../models/api_models.dart';
 import '../state/providers.dart';
 import '../theme/colors.dart';
 import '../widgets/app_button.dart';
+import '../widgets/inline_alert.dart';
 import '../widgets/status_pill.dart';
 
 class ProfilePage extends ConsumerWidget {
@@ -14,9 +15,15 @@ class ProfilePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authControllerProvider).value;
+    final role = auth?.role;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Your profile')),
+      appBar: AppBar(
+        title: const Text('Your profile'),
+        scrolledUnderElevation: 0,
+        forceMaterialTransparency: true,
+        centerTitle: true,
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -47,6 +54,11 @@ class ProfilePage extends ConsumerWidget {
                             : PillTone.bad),
                   ]),
             )),
+            if (role != null && role == Role.merchant ||
+                role == Role.admin) ...[
+              const SizedBox(height: 16),
+              const BiometricPaymentPanel(),
+            ],
             const SizedBox(height: 16),
             Card(
                 child: Padding(
@@ -146,6 +158,130 @@ class _Row extends StatelessWidget {
                     ),
                     softWrap: true,
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class BiometricPaymentPanel extends ConsumerWidget {
+  const BiometricPaymentPanel({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final state = ref.watch(biometricPaymentServiceProvider);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text("Biometric Payment Server",
+                style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 12),
+            _StatusRow(
+              label: "Server",
+              active: state.serverRunning,
+              activeLabel: "Running",
+              inactiveLabel: "Stopped",
+            ),
+            const SizedBox(height: 6),
+            _StatusRow(
+              label: "Merchant",
+              active: state.merchantConnected,
+              activeLabel: "Connected",
+              inactiveLabel: "Disconnected",
+            ),
+            if (state.errorMessage != null) ...[
+              const SizedBox(height: 12),
+              InlineAlert(
+                message: state.errorMessage!,
+                type: AlertType.danger,
+              ),
+            ],
+            const SizedBox(height: 16),
+            Row(
+              spacing: 8,
+              children: [
+                Expanded(
+                  child: AppButton(
+                    label: state.serverRunning ? "Stop Server" : "Start Server",
+                    icon: state.serverRunning
+                        ? Icons.stop_circle_outlined
+                        : Icons.play_circle_outline,
+                    variant: state.serverRunning
+                        ? AppButtonVariant.danger
+                        : AppButtonVariant.primary,
+                    loading: state.isProcessing,
+                    onPressed: state.isProcessing
+                        ? null
+                        : () async {
+                            if (state.serverRunning) {
+                              await ref
+                                  .read(
+                                      biometricPaymentServiceProvider.notifier)
+                                  .stopServer();
+                            } else {
+                              await ref
+                                  .read(
+                                      biometricPaymentServiceProvider.notifier)
+                                  .startServer();
+                            }
+                          },
+                  ),
+                ),
+                Expanded(
+                  child: AppButton(
+                    label: "Request Payment",
+                    icon: Icons.payment,
+                    variant: AppButtonVariant.ghost,
+                    onPressed: state.serverRunning
+                        ? () => context.push('/merchant/payment-request')
+                        : null,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusRow extends StatelessWidget {
+  const _StatusRow({
+    required this.label,
+    required this.active,
+    required this.activeLabel,
+    required this.inactiveLabel,
+  });
+
+  final String label;
+  final bool active;
+  final String activeLabel;
+  final String inactiveLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Text(
+            label,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+            ),
+          ),
+          const Spacer(),
+          StatusPill(
+            active ? activeLabel : inactiveLabel,
+            tone: active ? PillTone.ok : PillTone.neutral,
           ),
         ],
       ),

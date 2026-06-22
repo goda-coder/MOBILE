@@ -25,25 +25,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _password = TextEditingController();
   String? _error;
   bool _busy = false;
-  bool _autoAuthPrompted = false;
-
   @override
   void initState() {
     super.initState();
-  }
-
-  void _autoAuthenticate() async {
-    if (_autoAuthPrompted || _busy) return;
-    final bioState = ref.read(biometricControllerProvider);
-    if (bioState.isBiometricEnabled) {
-      _autoAuthPrompted = true;
-      final success = await ref
-          .read(biometricControllerProvider.notifier)
-          .authenticateAndSignIn();
-      if (success && mounted) {
-        context.go('/');
-      }
-    }
   }
 
   @override
@@ -81,12 +65,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen(biometricControllerProvider, (previous, next) {
-      if (next.isBiometricEnabled && !next.isLoading) {
-        _autoAuthenticate();
-      }
-    });
-
     final apiBaseUrl = ref.watch(apiBaseUrlProvider);
     return Scaffold(
       body: SafeArea(

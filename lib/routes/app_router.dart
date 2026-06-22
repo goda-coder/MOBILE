@@ -14,6 +14,7 @@ import '../pages/kyc_submit_page.dart';
 import '../pages/login_page.dart';
 import '../pages/merchant_qr_page.dart';
 import '../pages/notifications_page.dart';
+import '../pages/biometric_payment_request_page.dart';
 import '../pages/payment_result_page.dart';
 import '../pages/profile_page.dart';
 import '../pages/register_page.dart';
@@ -66,11 +67,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
       // Authed + on /login or /register → redirect
       if (isAuthed && loc == '/login') return '/';
-      if (isAuthed && loc == '/register') {
-        final pending = ref.read(pendingBiometricCredentialsProvider);
-        if (pending != null) return '/enable-biometrics';
-        return '/';
-      }
+      if (isAuthed && loc == '/register') return '/';
       // Authed but wrong role
       if (isAuthed && !_isAllowed(loc, auth?.role)) return '/';
       return null;
@@ -129,6 +126,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/profile', builder: (_, __) => const ProfilePage()),
           GoRoute(
               path: '/merchant/qr', builder: (_, __) => const MerchantQrPage()),
+          GoRoute(
+              path: '/merchant/payment-request',
+              builder: (_, __) => const BiometricPaymentRequestPage()),
           GoRoute(
               path: '/admin/kyc',
               builder: (_, __) => const AdminKycReviewPage()),

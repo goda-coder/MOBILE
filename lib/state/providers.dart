@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:wallet/services/biometric_payment_service.dart';
+import 'package:wallet/services/biometric_system_service.dart';
 
 import '../api/api_client.dart';
 import '../services/biometric_auth_service.dart';
@@ -20,9 +24,16 @@ final String _defaultBaseUrl = _envBaseUrl.isNotEmpty
     ? _envBaseUrl
     : (kIsWeb
         ? '${Uri.base.scheme == 'https' ? 'https' : 'http'}://${Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost'}:8081'
-        : 'http://10.0.2.2:8081');
+        : 'http://192.168.1.12:8081');
 
 final apiBaseUrlProvider = Provider<String>((_) => _defaultBaseUrl);
+
+/// WebSocket URL for the biometric system, derived from the API base URL.
+final biometricWsUrlProvider = Provider<Uri>((ref) {
+  final apiBase = ref.read(apiBaseUrlProvider);
+  final uri = Uri.parse(apiBase);
+  return Uri.parse('ws://${uri.host}:8732');
+});
 
 // -- Storage + client ------------------------------------------------
 final secureStorageProvider = Provider<FlutterSecureStorage>(
@@ -170,7 +181,7 @@ class AuthController extends AsyncNotifier<AuthState> {
     if (s?.refreshToken != null) {
       await ref.read(authApiProvider).logout(s!.refreshToken!);
     }
-  await tok.clear();
+    await tok.clear();
     state = AsyncData(AuthState());
   }
 }
@@ -188,7 +199,8 @@ class HasOnboarded extends Notifier<bool> {
   void set(bool val) => state = val;
 }
 
-final hasOnboardedProvider = NotifierProvider<HasOnboarded, bool>(() => HasOnboarded(false));
+final hasOnboardedProvider =
+    NotifierProvider<HasOnboarded, bool>(() => HasOnboarded(false));
 
 // -- Biometrics -------------------------------------------------------
 /// Temporary holder for credentials after registration, so the
@@ -342,3 +354,224 @@ final kycStatusProvider = FutureProvider.autoDispose((ref) async {
     return 'None';
   }
 });
+
+class BiometricSystemState {
+  const BiometricSystemState({
+    required this.connectionState,
+    this.errorMessage,
+  });
+
+  final WSConnectionState connectionState;
+  final String? errorMessage;
+}
+
+final biometricSystemServiceProvider = NotifierProvider.autoDispose<
+    _BiometricSystemNotifier,
+    BiometricSystemState>(_BiometricSystemNotifier.new);
+
+class _BiometricSystemNotifier extends Notifier<BiometricSystemState> {
+  late final BiometricSystemService _biometricSystemService;
+
+  @override
+  BiometricSystemState build() {
+    _biometricSystemService =
+        BiometricSystemService(wsURL: ref.read(biometricWsUrlProvider));
+    _biometricSystemService.onDisconnected = () {
+      state = const BiometricSystemState(
+        connectionState: WSConnectionState.disconnected,
+        errorMessage: "Connection lost",
+      );
+    };
+    return const BiometricSystemState(
+        connectionState: WSConnectionState.disconnected);
+  }
+
+  Future<void> connect() async {
+    state = const BiometricSystemState(
+        connectionState: WSConnectionState.connecting);
+    try {
+      await _biometricSystemService.connect();
+      state = const BiometricSystemState(
+          connectionState: WSConnectionState.connected);
+    } catch (e) {
+      state = BiometricSystemState(
+        connectionState: WSConnectionState.disconnected,
+        errorMessage: e.toString(),
+      );
+    }
+  }
+
+  Future<void> disconnect() async {
+    if (state.connectionState != WSConnectionState.connected) {
+      return;
+    }
+
+    state =
+        const BiometricSystemState(connectionState: WSConnectionState.closing);
+
+    _biometricSystemService.onDisconnected = null;
+
+    try {
+      await _biometricSystemService.dispose();
+    } finally {
+      state = const BiometricSystemState(
+          connectionState: WSConnectionState.disconnected);
+    }
+  }
+
+  void send(String message) {
+    if (state.connectionState == WSConnectionState.connected) {
+      _biometricSystemService.send(message);
+    }
+  }
+}
+
+// -- Biometric Payment (Merchant) --------------------------------------
+
+class BiometricPaymentState {
+  const BiometricPaymentState({
+    this.serverRunning = false,
+    this.merchantConnected = false,
+    this.transactionStatus,
+    this.errorMessage,
+    this.isProcessing = false,
+  });
+
+  final bool serverRunning;
+  final bool merchantConnected;
+  final String? transactionStatus;
+  final String? errorMessage;
+  final bool isProcessing;
+
+  BiometricPaymentState copyWith({
+    bool? serverRunning,
+    bool? merchantConnected,
+    String? transactionStatus,
+    String? errorMessage,
+    bool? isProcessing,
+  }) {
+    return BiometricPaymentState(
+      serverRunning: serverRunning ?? this.serverRunning,
+      merchantConnected: merchantConnected ?? this.merchantConnected,
+      transactionStatus: transactionStatus,
+      errorMessage: errorMessage,
+      isProcessing: isProcessing ?? this.isProcessing,
+    );
+  }
+}
+
+final biometricPaymentServiceProvider = NotifierProvider.autoDispose<
+    _BiometricPaymentNotifier,
+    BiometricPaymentState>(_BiometricPaymentNotifier.new);
+
+class _BiometricPaymentNotifier extends Notifier<BiometricPaymentState> {
+  late final BiometricPaymentService _paymentService;
+  StreamSubscription<bool>? _connectionSub;
+
+  @override
+  BiometricPaymentState build() {
+    _paymentService = BiometricPaymentService(
+      backendBaseUrl: '${ref.read(apiBaseUrlProvider)}/api/v1/payments',
+    );
+    return const BiometricPaymentState();
+  }
+
+  Future<void> startServer() async {
+    state = state.copyWith(errorMessage: null, isProcessing: true);
+    try {
+      await _paymentService.startLocalWebSocketServer();
+      _connectionSub = _paymentService.connectionStream.listen((connected) {
+        state = state.copyWith(merchantConnected: connected);
+      });
+      state = state.copyWith(serverRunning: true, isProcessing: false);
+    } catch (e) {
+      state = state.copyWith(
+        serverRunning: false,
+        isProcessing: false,
+        errorMessage: e.toString(),
+      );
+    }
+  }
+
+  Future<void> stopServer() async {
+    state = state.copyWith(errorMessage: null, isProcessing: true);
+    await _connectionSub?.cancel();
+    _connectionSub = null;
+    try {
+      await _paymentService.stopLocalWebSocketServer();
+      state = const BiometricPaymentState();
+    } catch (e) {
+      state = state.copyWith(
+        isProcessing: false,
+        errorMessage: e.toString(),
+      );
+    }
+  }
+
+  Future<String?> initiatePayment({
+    required String merchantId,
+    required String targetUserId,
+    required double amountEgp,
+  }) async {
+    state = state.copyWith(
+      errorMessage: null,
+      transactionStatus: null,
+      isProcessing: true,
+    );
+
+    final amountMinor = (amountEgp * 100).round();
+
+    try {
+      final transactionId = await _paymentService.initiateBiometricPayment(
+        merchantId: merchantId,
+        targetUserId: targetUserId,
+        amountMinor: amountMinor,
+      );
+
+      if (transactionId == null) {
+        state = state.copyWith(
+          isProcessing: false,
+          errorMessage: "Failed to create transaction",
+        );
+        return null;
+      }
+
+      final triggered = _paymentService.triggerMerchantDevice(
+        phoneNumber: targetUserId,
+        transactionId: transactionId,
+      );
+
+      if (!triggered) {
+        state = state.copyWith(
+          isProcessing: false,
+          errorMessage: "Merchant device not connected",
+        );
+        return null;
+      }
+
+      state = state.copyWith(transactionStatus: "PENDING");
+
+      final status = await _paymentService.monitorTransactionStatus(
+        transactionId,
+      );
+
+      state = state.copyWith(
+        transactionStatus: status,
+        isProcessing: false,
+      );
+
+      return status;
+    } catch (e) {
+      state = state.copyWith(
+        isProcessing: false,
+        errorMessage: e.toString(),
+      );
+      return null;
+    }
+  }
+
+  void dispose() {
+    _connectionSub?.cancel();
+    _paymentService.dispose();
+  }
+}

@@ -13,6 +13,7 @@ Future<void> main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+  
   // Dark status bar icons against our dark surfaces.
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -21,14 +22,14 @@ Future<void> main() async {
     systemNavigationBarColor: Color(0xFF08070C),
     systemNavigationBarIconBrightness: Brightness.light,
   ));
-
+  
   const storage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   );
   final hasOnboardedStr = await storage.read(key: 'has_onboarded');
   final hasOnboarded = hasOnboardedStr == 'true';
-
+  
   runApp(ProviderScope(
     overrides: [
       hasOnboardedProvider.overrideWith(() => HasOnboarded(hasOnboarded)),

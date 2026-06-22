@@ -46,7 +46,7 @@ flutter run
 flutter run --dart-define=API_BASE_URL=https://api.example.com
 ```
 
-The default `API_BASE_URL` is `http://10.0.2.2:8081` — the Android emulator's special address for "host machine on port 8081".
+The default `API_BASE_URL` is `http://10.0.2.2:8081` — the Android emulator's special address for "host machine on port 8081". The biometric payment and WebSocket URLs are derived from this value automatically, so a single `--dart-define` covers everything.
 
 | Target           | What to pass                                         |
 |------------------|------------------------------------------------------|

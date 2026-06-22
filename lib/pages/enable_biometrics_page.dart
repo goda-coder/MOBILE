@@ -131,6 +131,16 @@ class _EnableBiometricsPageState extends ConsumerState<EnableBiometricsPage> {
                   expand: true,
                 ),
               ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: AppButton(
+                  label: 'Skip',
+                  variant: AppButtonVariant.ghost,
+                  onPressed: _busy ? null : () => context.go('/'),
+                  expand: true,
+                ),
+              ),
               const SizedBox(height: 24),
             ],
           ),
