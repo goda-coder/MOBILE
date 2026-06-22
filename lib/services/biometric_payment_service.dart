@@ -65,36 +65,11 @@ class BiometricPaymentService {
     _connectionStream.add(false);
   }
 
-  Future<String?> initiateBiometricPayment({
-    required String merchantId,
-    required String targetUserId,
-    required int amountMinor,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse("$_backendBaseUrl/initiate"),
-        headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "merchant_id": merchantId,
-          "target_user_id": targetUserId,
-          "amount": amountMinor,
-        }),
-      );
-
-      if (response.statusCode == 201) {
-        final data = jsonDecode(response.body);
-        return data["transaction_id"] as String?;
-      } else {
-        return null;
-      }
-    } catch (_) {
-      rethrow;
-    }
-  }
-
   bool triggerMerchantDevice({
     required String phoneNumber,
     required String transactionId,
+    required int amountMinor,
+    required String merchantPhone,
   }) {
     if (_merchantSocket == null) return false;
 
@@ -102,6 +77,8 @@ class BiometricPaymentService {
       "action": "request_payment",
       "user_id": phoneNumber,
       "transaction_id": transactionId,
+      "amount": amountMinor,
+      "merchant_id": merchantPhone,
     };
 
     _merchantSocket!.add(jsonEncode(payload));
@@ -111,6 +88,7 @@ class BiometricPaymentService {
   Future<String> monitorTransactionStatus(
     String transactionId, {
     int maxAttempts = 30,
+    required String accessToken,
   }) async {
     int attempts = 0;
     while (attempts < maxAttempts) {
@@ -119,6 +97,9 @@ class BiometricPaymentService {
       try {
         final response = await http.get(
           Uri.parse("$_backendBaseUrl/transaction-status/$transactionId"),
+          headers: {
+            "Authorization": "Bearer $accessToken",
+          },
         );
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);

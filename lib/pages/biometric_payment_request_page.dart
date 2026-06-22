@@ -18,7 +18,7 @@ class BiometricPaymentRequestPage extends ConsumerStatefulWidget {
 
 class _BiometricPaymentRequestPageState
     extends ConsumerState<BiometricPaymentRequestPage> {
-  final _phoneController = TextEditingController();
+  final _phoneController = TextEditingController(text: '+20');
   final _amountController = TextEditingController();
   String? _error;
   bool _busy = false;
@@ -109,7 +109,7 @@ class _BiometricPaymentRequestPageState
             AppInput(
               controller: _phoneController,
               label: 'Customer phone number',
-              hint: 'e.g. 01012345678',
+              hint: '+201001234567',
               keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: 16),

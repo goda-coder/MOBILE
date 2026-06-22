@@ -522,23 +522,18 @@ class _BiometricPaymentNotifier extends Notifier<BiometricPaymentState> {
     final amountMinor = (amountEgp * 100).round();
 
     try {
-      final transactionId = await _paymentService.initiateBiometricPayment(
-        merchantId: merchantId,
-        targetUserId: targetUserId,
-        amountMinor: amountMinor,
-      );
-
-      if (transactionId == null) {
-        state = state.copyWith(
-          isProcessing: false,
-          errorMessage: "Failed to create transaction",
-        );
-        return null;
-      }
+      final transactionId =
+          await ref.read(paymentsApiProvider).initiateBiometricPayment(
+                merchantId: merchantId,
+                targetUserId: targetUserId,
+                amountMinor: amountMinor,
+              );
 
       final triggered = _paymentService.triggerMerchantDevice(
         phoneNumber: targetUserId,
         transactionId: transactionId,
+        amountMinor: amountMinor,
+        merchantPhone: merchantId,
       );
 
       if (!triggered) {
@@ -551,8 +546,11 @@ class _BiometricPaymentNotifier extends Notifier<BiometricPaymentState> {
 
       state = state.copyWith(transactionStatus: "PENDING");
 
+      final accessToken =
+          ref.read(authControllerProvider).value?.accessToken ?? '';
       final status = await _paymentService.monitorTransactionStatus(
         transactionId,
+        accessToken: accessToken,
       );
 
       state = state.copyWith(
