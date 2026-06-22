@@ -29,6 +29,7 @@ router.post('/login', (req, res) => {
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken,
     role: user.role === 'admin' ? 'Admin' : user.role === 'merchant' ? 'Merchant' : 'Customer',
+    phoneNumber: user.phoneNumber,
     email: user.email,
     userId: user.userId,
   });
