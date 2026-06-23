@@ -140,10 +140,10 @@ class _BiometricPaymentRequestPageState
               ),
               const SizedBox(height: 16),
             ],
-            if (!paymentState.serverRunning) ...[
+            if (!paymentState.isConnected) ...[
               const InlineAlert(
                 message:
-                    'Payment server is not running. Start it from the profile page first.',
+                    'Not connected to merchant system. Connect from the profile page first.',
                 type: AlertType.warning,
               ),
               const SizedBox(height: 16),
@@ -155,7 +155,7 @@ class _BiometricPaymentRequestPageState
               icon: Icons.send,
               loading: _busy,
               onPressed:
-                  (_busy || !paymentState.serverRunning) ? null : _submit,
+                  (_busy || !paymentState.isConnected) ? null : _submit,
             ),
           ],
         ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/api_models.dart';
 import '../state/providers.dart';
@@ -165,12 +166,45 @@ class _Row extends StatelessWidget {
   }
 }
 
-class BiometricPaymentPanel extends ConsumerWidget {
+class BiometricPaymentPanel extends ConsumerStatefulWidget {
   const BiometricPaymentPanel({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
+  ConsumerState<BiometricPaymentPanel> createState() =>
+      _BiometricPaymentPanelState();
+}
+
+class _BiometricPaymentPanelState
+    extends ConsumerState<BiometricPaymentPanel> {
+  final _hostController = TextEditingController(text: '127.0.0.1');
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedHost();
+  }
+
+  Future<void> _loadSavedHost() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('merchant_host');
+    if (saved != null && saved.isNotEmpty) {
+      _hostController.text = saved;
+    }
+  }
+
+  Future<void> _saveHost(String host) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('merchant_host', host);
+  }
+
+  @override
+  void dispose() {
+    _hostController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(biometricPaymentServiceProvider);
 
     return Card(
@@ -179,19 +213,26 @@ class BiometricPaymentPanel extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text("Biometric Payment Server",
+            const Text("Biometric Merchant System",
                 style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),
-            _StatusRow(
-              label: "Server",
-              active: state.serverRunning,
-              activeLabel: "Running",
-              inactiveLabel: "Stopped",
+            TextField(
+              controller: _hostController,
+              decoration: const InputDecoration(
+                labelText: 'Merchant System IP',
+                hintText: 'e.g. 192.168.1.100',
+                isDense: true,
+                border: OutlineInputBorder(),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              ),
+              style: const TextStyle(fontSize: 14),
+              onChanged: (val) => _saveHost(val.trim()),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 12),
             _StatusRow(
-              label: "Merchant",
-              active: state.merchantConnected,
+              label: "Connection",
+              active: state.isConnected,
               activeLabel: "Connected",
               inactiveLabel: "Disconnected",
             ),
@@ -208,27 +249,29 @@ class BiometricPaymentPanel extends ConsumerWidget {
               children: [
                 Expanded(
                   child: AppButton(
-                    label: state.serverRunning ? "Stop Server" : "Start Server",
-                    icon: state.serverRunning
+                    label: state.isConnected ? "Disconnect" : "Connect",
+                    icon: state.isConnected
                         ? Icons.stop_circle_outlined
                         : Icons.play_circle_outline,
-                    variant: state.serverRunning
+                    variant: state.isConnected
                         ? AppButtonVariant.danger
                         : AppButtonVariant.primary,
                     loading: state.isProcessing,
                     onPressed: state.isProcessing
                         ? null
                         : () async {
-                            if (state.serverRunning) {
+                            if (state.isConnected) {
                               await ref
                                   .read(
                                       biometricPaymentServiceProvider.notifier)
-                                  .stopServer();
+                                  .disconnectFromMerchant();
                             } else {
+                              final host = _hostController.text.trim();
+                              if (host.isEmpty) return;
                               await ref
                                   .read(
                                       biometricPaymentServiceProvider.notifier)
-                                  .startServer();
+                                  .connectToMerchant(host);
                             }
                           },
                   ),
@@ -238,7 +281,7 @@ class BiometricPaymentPanel extends ConsumerWidget {
                     label: "Request Payment",
                     icon: Icons.payment,
                     variant: AppButtonVariant.ghost,
-                    onPressed: state.serverRunning
+                    onPressed: state.isConnected
                         ? () => context.push('/merchant/payment-request')
                         : null,
                   ),

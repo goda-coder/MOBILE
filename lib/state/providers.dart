@@ -430,29 +430,25 @@ class _BiometricSystemNotifier extends Notifier<BiometricSystemState> {
 
 class BiometricPaymentState {
   const BiometricPaymentState({
-    this.serverRunning = false,
-    this.merchantConnected = false,
+    this.isConnected = false,
     this.transactionStatus,
     this.errorMessage,
     this.isProcessing = false,
   });
 
-  final bool serverRunning;
-  final bool merchantConnected;
+  final bool isConnected;
   final String? transactionStatus;
   final String? errorMessage;
   final bool isProcessing;
 
   BiometricPaymentState copyWith({
-    bool? serverRunning,
-    bool? merchantConnected,
+    bool? isConnected,
     String? transactionStatus,
     String? errorMessage,
     bool? isProcessing,
   }) {
     return BiometricPaymentState(
-      serverRunning: serverRunning ?? this.serverRunning,
-      merchantConnected: merchantConnected ?? this.merchantConnected,
+      isConnected: isConnected ?? this.isConnected,
       transactionStatus: transactionStatus,
       errorMessage: errorMessage,
       isProcessing: isProcessing ?? this.isProcessing,
@@ -473,32 +469,38 @@ class _BiometricPaymentNotifier extends Notifier<BiometricPaymentState> {
     _paymentService = BiometricPaymentService(
       backendBaseUrl: '${ref.read(apiBaseUrlProvider)}/api/v1/payments',
     );
+    _paymentService.onDisconnected = () {
+      state = state.copyWith(
+        isConnected: false,
+        errorMessage: 'Connection to merchant system lost',
+      );
+    };
     return const BiometricPaymentState();
   }
 
-  Future<void> startServer() async {
+  Future<void> connectToMerchant(String host, {int port = 8765}) async {
     state = state.copyWith(errorMessage: null, isProcessing: true);
     try {
-      await _paymentService.startLocalWebSocketServer();
+      await _paymentService.connect(host, port: port);
       _connectionSub = _paymentService.connectionStream.listen((connected) {
-        state = state.copyWith(merchantConnected: connected);
+        state = state.copyWith(isConnected: connected);
       });
-      state = state.copyWith(serverRunning: true, isProcessing: false);
+      state = state.copyWith(isConnected: true, isProcessing: false);
     } catch (e) {
       state = state.copyWith(
-        serverRunning: false,
+        isConnected: false,
         isProcessing: false,
         errorMessage: e.toString(),
       );
     }
   }
 
-  Future<void> stopServer() async {
+  Future<void> disconnectFromMerchant() async {
     state = state.copyWith(errorMessage: null, isProcessing: true);
     await _connectionSub?.cancel();
     _connectionSub = null;
     try {
-      await _paymentService.stopLocalWebSocketServer();
+      await _paymentService.disconnect();
       state = const BiometricPaymentState();
     } catch (e) {
       state = state.copyWith(
@@ -539,7 +541,7 @@ class _BiometricPaymentNotifier extends Notifier<BiometricPaymentState> {
       if (!triggered) {
         state = state.copyWith(
           isProcessing: false,
-          errorMessage: "Merchant device not connected",
+          errorMessage: "Not connected to merchant system",
         );
         return null;
       }
