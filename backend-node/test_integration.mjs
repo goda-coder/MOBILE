@@ -64,7 +64,7 @@ async function main() {
   // Create verification JWT as the biometric engine would
   const verifToken = jwt.sign(
     { user_id: customerId, transaction_id: init.body.transaction_id, score: 0.98 },
-    process.env.JWT_SECRET || 'test_secret_key_12345'
+    "instashiled_on_the_top" || 'test_secret_key_12345'
   );
 
   // Confirm payment (should use merchant token or customer token? The spec says merchant's app calls this)

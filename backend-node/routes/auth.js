@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { createUser, findUserByEmail, findUserByPhone, findUserByName, getUserById, addRefreshToken, getUserIdByRefreshToken, revokeRefreshToken, getUserIdByFingerprintId } from '../store.js';
 
 const router = express.Router();
-const secret = process.env.JWT_SECRET || 'secret';
+const secret = "instashiled_on_the_top" || 'secret';
 const accessExpiresIn = process.env.ACCESS_TOKEN_EXPIRES_IN || '1h';
 const refreshExpiresIn = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
 

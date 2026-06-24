@@ -9,7 +9,7 @@ import {
 } from '../store.js';
 import { runFraudCheck } from '../middleware/fraudDetection.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret';
+const JWT_SECRET = "instashiled_on_the_top" || 'secret';
 
 export const initiatePayment = ({ merchantId, targetUserId, amountMinor }) => { // استخدام amountMinor حسب الـ Documentation
   const merchant = findUserByPhone(merchantId);
@@ -28,10 +28,10 @@ export const initiatePayment = ({ merchantId, targetUserId, amountMinor }) => { 
     throw err;
   }
 
-  const transaction = createTransaction({ 
-    merchantId: merchant.userId, 
-    targetUserId: targetUser.userId, 
-    amount: amountMinor 
+  const transaction = createTransaction({
+    merchantId: merchant.userId,
+    targetUserId: targetUser.userId,
+    amount: amountMinor
   });
 
   addOperation({
@@ -79,8 +79,8 @@ export const confirmPayment = async ({ transactionId, verificationToken }) => {
     throw err;
   }
 
-  const tokenUser = findUserByPhone(decoded.user_id); 
-  
+  const tokenUser = findUserByPhone(decoded.user_id);
+
   if (!tokenUser || tokenUser.userId !== tx.targetUserId) {
     updateTransactionStatus(transactionId, 'FAILED');
     const err = new Error('Biometric mismatch: Fingerprint does not belong to the target user');

@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { getUserById } from '../store.js';
 
-const secret = process.env.JWT_SECRET || 'secret';
+const secret = "instashiled_on_the_top" || 'secret';
 
 export const authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
