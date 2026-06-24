@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:wallet/services/biometric_payment_service.dart';
+import 'package:wallet/services/biometric_payment_service.dart' show BiometricPaymentService, PaymentResult;
 import 'package:wallet/services/biometric_system_service.dart';
 
 import '../api/api_client.dart';
@@ -72,12 +72,14 @@ class AuthState {
       this.refreshToken,
       this.role,
       this.phoneNumber,
-      this.userId});
+      this.userId,
+      this.fullName});
   final String? accessToken;
   final String? refreshToken;
   final Role? role;
   final String? phoneNumber;
   final String? userId;
+  final String? fullName;
   bool get isAuthenticated => accessToken != null && accessToken!.isNotEmpty;
 }
 
@@ -92,12 +94,20 @@ class AuthController extends AsyncNotifier<AuthState> {
     state = const AsyncLoading();
     try {
       final r = await ref.read(authApiProvider).login(phoneNumber, password);
+      String name = r.fullName;
+      if (name.isEmpty) {
+        try {
+          final profile = await ref.read(authApiProvider).profile();
+          name = profile.fullName;
+        } catch (_) {}
+      }
       await ref.read(tokenStoreProvider).setSession(
             access: r.accessToken,
             refresh: r.refreshToken,
             role: r.role.name,
             phoneNumber: r.phoneNumber,
             userId: r.userId,
+            fullName: name,
           );
       state = AsyncData(AuthState(
         accessToken: r.accessToken,
@@ -105,6 +115,7 @@ class AuthController extends AsyncNotifier<AuthState> {
         role: r.role,
         phoneNumber: r.phoneNumber,
         userId: r.userId,
+        fullName: name,
       ));
     } catch (e, st) {
       state = AsyncError(e, st);
@@ -119,12 +130,20 @@ class AuthController extends AsyncNotifier<AuthState> {
             fingerprintId: fingerprintId,
             matched: true,
           );
+      String name = r.fullName;
+      if (name.isEmpty) {
+        try {
+          final profile = await ref.read(authApiProvider).profile();
+          name = profile.fullName;
+        } catch (_) {}
+      }
       await ref.read(tokenStoreProvider).setSession(
             access: r.accessToken,
             refresh: r.refreshToken,
             role: r.role.name,
             phoneNumber: r.phoneNumber,
             userId: r.userId,
+            fullName: name,
           );
       state = AsyncData(AuthState(
         accessToken: r.accessToken,
@@ -132,6 +151,7 @@ class AuthController extends AsyncNotifier<AuthState> {
         role: r.role,
         phoneNumber: r.phoneNumber,
         userId: r.userId,
+        fullName: name,
       ));
     } catch (e, st) {
       state = AsyncError(e, st);
@@ -155,12 +175,14 @@ class AuthController extends AsyncNotifier<AuthState> {
             password: password,
             role: role,
           );
+      final name = r.fullName.isNotEmpty ? r.fullName : fullName;
       await ref.read(tokenStoreProvider).setSession(
             access: r.accessToken,
             refresh: r.refreshToken,
             role: r.role.name,
             phoneNumber: r.phoneNumber,
             userId: r.userId,
+            fullName: name,
           );
       state = AsyncData(AuthState(
         accessToken: r.accessToken,
@@ -168,6 +190,7 @@ class AuthController extends AsyncNotifier<AuthState> {
         role: r.role,
         phoneNumber: r.phoneNumber,
         userId: r.userId,
+        fullName: name,
       ));
     } catch (e, st) {
       state = AsyncError(e, st);
@@ -176,10 +199,18 @@ class AuthController extends AsyncNotifier<AuthState> {
   }
 
   Future<void> signOut() async {
+    try {
+      await ref
+          .read(biometricPaymentServiceProvider.notifier)
+          .disconnectFromMerchant();
+    } catch (_) {}
+    ref.invalidate(biometricPaymentServiceProvider);
     final s = state.value;
     final tok = ref.read(tokenStoreProvider);
     if (s?.refreshToken != null) {
-      await ref.read(authApiProvider).logout(s!.refreshToken!);
+      try {
+        await ref.read(authApiProvider).logout(s!.refreshToken!);
+      } catch (_) {}
     }
     await tok.clear();
     state = AsyncData(AuthState());
@@ -479,6 +510,9 @@ class _BiometricPaymentNotifier extends Notifier<BiometricPaymentState> {
   }
 
   Future<void> connectToMerchant(String host, {int port = 8765}) async {
+    if (state.isConnected || state.isProcessing) {
+      await disconnectFromMerchant();
+    }
     state = state.copyWith(errorMessage: null, isProcessing: true);
     try {
       await _paymentService.connect(host, port: port);
@@ -548,12 +582,41 @@ class _BiometricPaymentNotifier extends Notifier<BiometricPaymentState> {
 
       state = state.copyWith(transactionStatus: "PENDING");
 
-      final accessToken =
-          ref.read(authControllerProvider).value?.accessToken ?? '';
-      final status = await _paymentService.monitorTransactionStatus(
-        transactionId,
-        accessToken: accessToken,
-      );
+      // Dual-mode: try WS result first, fall back to HTTP polling
+      StreamSubscription<PaymentResult>? wsSub;
+      final wsResult = Completer<PaymentResult?>();
+
+      wsSub = _paymentService.paymentResultStream.listen((result) {
+        if (result.transactionId == transactionId && !wsResult.isCompleted) {
+          wsResult.complete(result);
+        }
+      });
+
+      // Wait for WS result with a 10-second timeout
+      final timeoutTimer = Timer(const Duration(seconds: 10), () {
+        if (!wsResult.isCompleted) {
+          wsResult.complete(null);
+        }
+      });
+
+      final PaymentResult? paymentResult = await wsResult.future;
+      timeoutTimer.cancel();
+      await wsSub?.cancel();
+
+      late String status;
+
+      if (paymentResult != null) {
+        // WS result arrived
+        status = paymentResult.status == "success" ? "SUCCESS" : "FAILED";
+      } else {
+        // Fall back to HTTP polling
+        final accessToken =
+            ref.read(authControllerProvider).value?.accessToken ?? '';
+        status = await _paymentService.monitorTransactionStatus(
+          transactionId,
+          accessToken: accessToken,
+        );
+      }
 
       state = state.copyWith(
         transactionStatus: status,
