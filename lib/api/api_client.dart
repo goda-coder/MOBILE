@@ -15,11 +15,12 @@ class ApiError implements Exception {
 
 /// Keys used in flutter_secure_storage. Centralised so we can rotate later.
 abstract final class _Keys {
-  static const access  = 'wallet.accessToken';
+  static const access = 'wallet.accessToken';
   static const refresh = 'wallet.refreshToken';
-  static const role    = 'wallet.role';
+  static const role = 'wallet.role';
   static const phoneNumber = 'wallet.phoneNumber';
-  static const userId  = 'wallet.userId';
+  static const userId = 'wallet.userId';
+  static const fullName = 'wallet.fullName';
 }
 
 /// Thin auth-token cache backed by the system Keychain / Android Keystore.
@@ -28,11 +29,11 @@ class TokenStore {
   TokenStore(this._storage);
   final FlutterSecureStorage _storage;
 
-  Future<String?> getAccess()  => _storage.read(key: _Keys.access);
+  Future<String?> getAccess() => _storage.read(key: _Keys.access);
   Future<String?> getRefresh() => _storage.read(key: _Keys.refresh);
 
   Future<void> setTokens(String access, String refresh) async {
-    await _storage.write(key: _Keys.access,  value: access);
+    await _storage.write(key: _Keys.access, value: access);
     await _storage.write(key: _Keys.refresh, value: refresh);
   }
 
@@ -42,21 +43,24 @@ class TokenStore {
     required String role,
     required String phoneNumber,
     required String userId,
+    String fullName = '',
   }) async {
-    await _storage.write(key: _Keys.access,  value: access);
+    await _storage.write(key: _Keys.access, value: access);
     await _storage.write(key: _Keys.refresh, value: refresh);
-    await _storage.write(key: _Keys.role,    value: role);
-    await _storage.write(key: _Keys.phoneNumber,   value: phoneNumber);
-    await _storage.write(key: _Keys.userId,  value: userId);
+    await _storage.write(key: _Keys.role, value: role);
+    await _storage.write(key: _Keys.phoneNumber, value: phoneNumber);
+    await _storage.write(key: _Keys.userId, value: userId);
+    await _storage.write(key: _Keys.fullName, value: fullName);
   }
 
   Future<Map<String, String?>> getSession() async => {
-    'access':  await _storage.read(key: _Keys.access),
-    'refresh': await _storage.read(key: _Keys.refresh),
-    'role':    await _storage.read(key: _Keys.role),
-    'phoneNumber':   await _storage.read(key: _Keys.phoneNumber),
-    'userId':  await _storage.read(key: _Keys.userId),
-  };
+        'access': await _storage.read(key: _Keys.access),
+        'refresh': await _storage.read(key: _Keys.refresh),
+        'role': await _storage.read(key: _Keys.role),
+        'phoneNumber': await _storage.read(key: _Keys.phoneNumber),
+        'userId': await _storage.read(key: _Keys.userId),
+        'fullName': await _storage.read(key: _Keys.fullName),
+      };
 
   Future<void> clear() async {
     await _storage.delete(key: _Keys.access);
@@ -64,6 +68,7 @@ class TokenStore {
     await _storage.delete(key: _Keys.role);
     await _storage.delete(key: _Keys.phoneNumber);
     await _storage.delete(key: _Keys.userId);
+    await _storage.delete(key: _Keys.fullName);
   }
 }
 
@@ -88,12 +93,13 @@ class ApiClient {
   static ApiError toApiError(DioException e) {
     final res = e.response;
     if (res == null) {
-      final requestedUrl = '${e.requestOptions.baseUrl}${e.requestOptions.path}';
+      final requestedUrl =
+          '${e.requestOptions.baseUrl}${e.requestOptions.path}';
       return ApiError(
         0,
         'NETWORK_ERROR',
         'Network unavailable while connecting to $requestedUrl. '
-        'Confirm the backend is running and accessible from the browser.',
+            'Confirm the backend is running and accessible from the browser.',
         e.message,
       );
     }
@@ -125,7 +131,7 @@ class _AuthInterceptor extends Interceptor {
 
   @override
   Future<void> onRequest(
-    RequestOptions options, RequestInterceptorHandler handler) async {
+      RequestOptions options, RequestInterceptorHandler handler) async {
     if (options.extra['skipAuth'] != true) {
       final tok = await tokens.getAccess();
       if (tok != null) options.headers['Authorization'] = 'Bearer $tok';
@@ -135,7 +141,7 @@ class _AuthInterceptor extends Interceptor {
 
   @override
   Future<void> onError(
-    DioException err, ErrorInterceptorHandler handler) async {
+      DioException err, ErrorInterceptorHandler handler) async {
     // Only handle 401 from non-auth endpoints, and only attempt one refresh.
     final isAuthEndpoint = err.requestOptions.path.contains('/auth/');
     final alreadyRetried = err.requestOptions.extra['didRefresh'] == true;
@@ -147,14 +153,17 @@ class _AuthInterceptor extends Interceptor {
       _refreshing = true;
       try {
         final refresh = await tokens.getRefresh();
-        if (refresh == null) { _refreshing = false; return handler.next(err); }
+        if (refresh == null) {
+          _refreshing = false;
+          return handler.next(err);
+        }
 
         final r = await dio.post(
           '/api/v1/auth/refresh',
           data: {'refreshToken': refresh},
           options: Options(extra: {'skipAuth': true}),
         );
-        final newAccess  = r.data['accessToken']  as String;
+        final newAccess = r.data['accessToken'] as String;
         final newRefresh = r.data['refreshToken'] as String;
         await tokens.setTokens(newAccess, newRefresh);
 

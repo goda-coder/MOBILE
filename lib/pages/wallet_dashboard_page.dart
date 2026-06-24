@@ -25,7 +25,6 @@ class WalletDashboardPage extends ConsumerWidget {
     final summary = ref.watch(_summaryProvider);
     final txs = ref.watch(_txProvider);
     final auth = ref.watch(authControllerProvider).value;
-    final phoneNumber = auth?.phoneNumber;
     final role = auth?.role;
 
     return SafeArea(
@@ -51,7 +50,7 @@ class WalletDashboardPage extends ConsumerWidget {
                               letterSpacing: 2,
                               fontSize: 11)),
                       const SizedBox(height: 2),
-                      Text(phoneNumber ?? 'there',
+                      Text(auth?.fullName ?? 'there',
                           style: const TextStyle(
                               fontSize: 20, fontWeight: FontWeight.w600)),
                     ],
@@ -62,13 +61,9 @@ class WalletDashboardPage extends ConsumerWidget {
                       tone: kycTone(summary.value!.kycStatus)),
               ],
             ),
-            const SizedBox(height: 20),
-            if (role != null) ...[
-              _RoleDashboardCard(role: role),
-              const SizedBox(height: 20),
-            ],
-
             // ---- Bento row ----
+
+            const SizedBox(height: 20),
             summary.when(
               data: (s) => _BentoRow(summary: s),
               loading: () => const _BalanceSkeleton(),
@@ -76,8 +71,9 @@ class WalletDashboardPage extends ConsumerWidget {
                   title: 'Could not load balance', message: e.toString()),
             ),
 
-            const SizedBox(height: 20),
-
+            const SizedBox(
+              height: 14.0,
+            ),
             // ---- Recent activity ----
             Card(
               child: Padding(
@@ -121,85 +117,7 @@ class _BentoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(children: [
       // Big balance tile
-      Card(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('BALANCE',
-                  style: TextStyle(
-                      letterSpacing: 2, color: AppColors.ink400, fontSize: 11)),
-              const SizedBox(height: 6),
-              Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(
-                  formatAmount(summary.balanceMinor),
-                  style: AppTheme.numTextStyle(
-                      fontSize: 40, fontWeight: FontWeight.w300),
-                ),
-                const SizedBox(width: 8),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(summary.currency,
-                      style: AppTheme.numTextStyle(
-                          fontSize: 16, color: AppColors.ink400)),
-                ),
-              ]),
-              const SizedBox(height: 16),
-              Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: AppButton(
-                          label: 'Send',
-                          icon: Icons.north_east,
-                          expand: true,
-                          onPressed: () => context.push('/transfer'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: AppButton(
-                          label: 'Top up',
-                          icon: Icons.add,
-                          variant: AppButtonVariant.ghost,
-                          expand: true,
-                          onPressed: () => context.push('/top-up'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: AppButton(
-                          label: 'Support',
-                          icon: Icons.chat_bubble,
-                          variant: AppButtonVariant.ghost,
-                          expand: true,
-                          onPressed: () => context.push('/chat'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: AppButton(
-                          label: 'Report',
-                          icon: Icons.receipt_long,
-                          variant: AppButtonVariant.ghost,
-                          expand: true,
-                          onPressed: () => context.push('/report'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              )
-            ],
-          ),
-        ),
-      ),
+      BalanceCard(summary: summary),
       const SizedBox(height: 14),
 
       // Identity tile
@@ -260,6 +178,98 @@ class _BentoRow extends StatelessWidget {
         ),
       ),
     ]);
+  }
+}
+
+class BalanceCard extends StatelessWidget {
+  const BalanceCard({
+    super.key,
+    required this.summary,
+  });
+
+  final WalletSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('BALANCE',
+                style: TextStyle(
+                    letterSpacing: 2, color: AppColors.ink400, fontSize: 11)),
+            const SizedBox(height: 6),
+            Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(
+                formatAmount(summary.balanceMinor),
+                style: AppTheme.numTextStyle(
+                    fontSize: 40, fontWeight: FontWeight.w300),
+              ),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(summary.currency,
+                    style: AppTheme.numTextStyle(
+                        fontSize: 16, color: AppColors.ink400)),
+              ),
+            ]),
+            const SizedBox(height: 16),
+            Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: AppButton(
+                        label: 'Send',
+                        icon: Icons.north_east,
+                        expand: true,
+                        onPressed: () => context.push('/transfer'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: AppButton(
+                        label: 'Top up',
+                        icon: Icons.add,
+                        variant: AppButtonVariant.ghost,
+                        expand: true,
+                        onPressed: () => context.push('/top-up'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: AppButton(
+                        label: 'Support',
+                        icon: Icons.chat_bubble,
+                        variant: AppButtonVariant.ghost,
+                        expand: true,
+                        onPressed: () => context.push('/chat'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: AppButton(
+                        label: 'Report',
+                        icon: Icons.receipt_long,
+                        variant: AppButtonVariant.ghost,
+                        expand: true,
+                        onPressed: () => context.push('/report'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            )
+          ],
+        ),
+      ),
+    );
   }
 }
 

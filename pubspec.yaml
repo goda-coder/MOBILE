@@ -43,6 +43,10 @@ dependencies:
   local_auth: ^3.0.1
   shared_preferences: ^2.5.5
   web_socket_channel: ^3.0.3
+  chat_bubbles: ^1.10.1
+  flutter_chat_core: ^2.9.0
+  flutter_chat_ui: ^2.11.1
+  multicast_dns: ^0.3.3+1
 
 dev_dependencies:
   flutter_test:

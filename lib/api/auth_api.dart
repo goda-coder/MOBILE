@@ -79,9 +79,19 @@ class AuthApi {
     }
   }
 
+  Future<ProfileResponse> profile() async {
+    try {
+      final r = await _c.dio.get('/api/v1/profile');
+      return ProfileResponse.fromJson(r.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiClient.toApiError(e);
+    }
+  }
+
   Future<void> logout(String refreshToken) async {
     try {
-      await _c.dio.post('/api/v1/auth/logout', data: {'refreshToken': refreshToken});
+      await _c.dio
+          .post('/api/v1/auth/logout', data: {'refreshToken': refreshToken});
     } catch (_) {
       // Best effort — local state is cleared regardless.
     }

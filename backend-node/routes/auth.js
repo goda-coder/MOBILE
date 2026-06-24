@@ -32,6 +32,7 @@ router.post('/login', (req, res) => {
     phoneNumber: user.phoneNumber,
     email: user.email,
     userId: user.userId,
+    fullName: user.fullName,
   });
 });
 
@@ -65,6 +66,7 @@ router.post('/register', (req, res) => {
     role: normalizedRole === 'admin' ? 'Admin' : normalizedRole === 'merchant' ? 'Merchant' : 'Customer',
     phoneNumber: user.phoneNumber,
     userId: user.userId,
+    fullName: user.fullName,
   });
 });
 
@@ -91,6 +93,7 @@ router.post('/login-fingerprint', (req, res) => {
     role: user.role === 'admin' ? 'Admin' : user.role === 'merchant' ? 'Merchant' : 'Customer',
     phoneNumber: user.phoneNumber,
     userId: user.userId,
+    fullName: user.fullName,
   });
 });
 

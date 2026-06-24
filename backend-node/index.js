@@ -10,6 +10,7 @@ import fingerprintRouter from './routes/fingerprint.js';
 import fingerprintDeviceRouter from './routes/fingerprintRoutes.js';
 import chatRouter from './routes/chat.js';
 import { authenticate } from './middleware/auth.js';
+import { getUserById } from './store.js';
 
 dotenv.config();
 const app = express();
@@ -29,6 +30,17 @@ app.use('/api/v1/kyc', authenticate, kycRouter);
 app.use('/api/v1/admin', authenticate, adminRouter);
 app.use('/api/v1/fingerprint', authenticate, fingerprintRouter);
 app.use('/api/v1/chat', authenticate, chatRouter);
+
+app.get('/api/v1/profile', authenticate, (req, res) => {
+  const user = req.user;
+  res.json({
+    fullName: user.fullName,
+    phoneNumber: user.phoneNumber,
+    email: user.email,
+    role: user.role === 'admin' ? 'Admin' : user.role === 'merchant' ? 'Merchant' : 'Customer',
+    userId: user.userId,
+  });
+});
 
 app.get('/', (req, res) => res.send({ status: 'ok', version: '1.0.0' }));
 

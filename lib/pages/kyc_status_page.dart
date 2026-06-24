@@ -20,7 +20,7 @@ class KycStatusPage extends ConsumerWidget {
     final async = ref.watch(_statusProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Identity status')),
+      appBar: AppBar(title: const Text('Identity status'), ),
       body: SafeArea(
         child: async.when(
           loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),

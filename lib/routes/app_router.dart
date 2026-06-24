@@ -14,12 +14,10 @@ import '../pages/kyc_submit_page.dart';
 import '../pages/login_page.dart';
 import '../pages/merchant_qr_page.dart';
 import '../pages/notifications_page.dart';
-import '../pages/biometric_payment_request_page.dart';
 import '../pages/payment_result_page.dart';
 import '../pages/profile_page.dart';
 import '../pages/register_page.dart';
 import '../pages/report_page.dart';
-import '../pages/scan_qr_page.dart';
 import '../pages/shell_page.dart';
 import '../pages/top_up_page.dart';
 import '../pages/transfer_page.dart';
@@ -93,45 +91,67 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           path: '/payment-failure',
           builder: (_, __) => const PaymentFailurePage()),
 
+      GoRoute(
+          path: '/chat',
+          builder: (_, state) =>
+              ChatPage(userId: state.uri.queryParameters['userId'])),
       // Authenticated app with the bottom-nav shell
-      ShellRoute(
-        builder: (_, __, child) => ShellPage(child: child),
-        routes: [
-          GoRoute(path: '/', builder: (_, __) => const WalletDashboardPage()),
-          GoRoute(path: '/transfer', builder: (_, __) => const TransferPage()),
-          GoRoute(
-              path: '/top-up',
-              builder: (_, state) =>
-                  TopUpPage(method: state.uri.queryParameters['method'])),
-          GoRoute(
-              path: '/fingerprint-auth',
-              builder: (_, state) => FingerprintAuthPage(
-                  paymentIntentId:
-                      state.uri.queryParameters['paymentIntentId'] ?? '')),
-          GoRoute(
-              path: '/chat',
-              builder: (_, state) =>
-                  ChatPage(userId: state.uri.queryParameters['userId'])),
-          GoRoute(path: '/report', builder: (_, __) => const ReportPage()),
-          GoRoute(path: '/scan', builder: (_, __) => const ScanQrPage()),
-          GoRoute(path: '/kyc', builder: (_, __) => const KycStatusPage()),
-          GoRoute(
-              path: '/kyc/submit', builder: (_, __) => const KycSubmitPage()),
-          GoRoute(
-              path: '/kyc/liveness',
-              builder: (_, __) => const KycLivenessPage()),
-          GoRoute(
-              path: '/notifications',
-              builder: (_, __) => const NotificationsPage()),
-          GoRoute(path: '/profile', builder: (_, __) => const ProfilePage()),
-          GoRoute(
-              path: '/merchant/qr', builder: (_, __) => const MerchantQrPage()),
-          GoRoute(
-              path: '/merchant/payment-request',
-              builder: (_, __) => const BiometricPaymentRequestPage()),
-          GoRoute(
-              path: '/admin/kyc',
-              builder: (_, __) => const AdminKycReviewPage()),
+      StatefulShellRoute.indexedStack(
+        builder: (_, __, navigationShell) =>
+            ShellPage(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                  path: '/', builder: (_, __) => const WalletDashboardPage()),
+              GoRoute(
+                  path: '/top-up',
+                  builder: (_, state) =>
+                      TopUpPage(method: state.uri.queryParameters['method'])),
+              GoRoute(
+                  path: '/fingerprint-auth',
+                  builder: (_, state) => FingerprintAuthPage(
+                      paymentIntentId:
+                          state.uri.queryParameters['paymentIntentId'] ?? '')),
+              GoRoute(path: '/report', builder: (_, __) => const ReportPage()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                  path: '/transfer', builder: (_, __) => const TransferPage()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                  path: '/merchant/qr',
+                  builder: (_, __) => const MerchantQrPage()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                  path: '/admin/kyc',
+                  builder: (_, __) => const AdminKycReviewPage()),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                  path: '/profile', builder: (_, __) => const ProfilePage()),
+              GoRoute(path: '/kyc', builder: (_, __) => const KycStatusPage()),
+              GoRoute(
+                  path: '/kyc/submit',
+                  builder: (_, __) => const KycSubmitPage()),
+              GoRoute(
+                  path: '/kyc/liveness',
+                  builder: (_, __) => const KycLivenessPage()),
+              GoRoute(
+                  path: '/notifications',
+                  builder: (_, __) => const NotificationsPage()),
+            ],
+          ),
         ],
       ),
     ],

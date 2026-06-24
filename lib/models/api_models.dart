@@ -3,9 +3,9 @@
 enum Role { customer, merchant, admin }
 
 Role parseRole(String s) => switch (s) {
-      'Admin'    => Role.admin,
+      'Admin' => Role.admin,
       'Merchant' => Role.merchant,
-      _          => Role.customer,
+      _ => Role.customer,
     };
 
 class LoginResponse {
@@ -15,18 +15,44 @@ class LoginResponse {
     required this.role,
     required this.phoneNumber,
     required this.userId,
+    this.fullName = '',
   });
   final String accessToken;
   final String refreshToken;
   final Role role;
   final String phoneNumber;
   final String userId;
+  final String fullName;
 
   factory LoginResponse.fromJson(Map<String, dynamic> j) => LoginResponse(
         accessToken: j['accessToken'] as String,
         refreshToken: j['refreshToken'] as String,
         role: parseRole((j['role'] ?? 'Customer').toString()),
         phoneNumber: (j['phoneNumber'] ?? '').toString(),
+        userId: (j['userId'] ?? '').toString(),
+        fullName: (j['fullName'] ?? '').toString(),
+      );
+}
+
+class ProfileResponse {
+  ProfileResponse({
+    required this.fullName,
+    required this.phoneNumber,
+    required this.email,
+    required this.role,
+    required this.userId,
+  });
+  final String fullName;
+  final String phoneNumber;
+  final String email;
+  final String role;
+  final String userId;
+
+  factory ProfileResponse.fromJson(Map<String, dynamic> j) => ProfileResponse(
+        fullName: (j['fullName'] ?? '').toString(),
+        phoneNumber: (j['phoneNumber'] ?? '').toString(),
+        email: (j['email'] ?? '').toString(),
+        role: (j['role'] ?? 'Customer').toString(),
         userId: (j['userId'] ?? '').toString(),
       );
 }
@@ -40,12 +66,14 @@ class WalletSummary {
     required this.currency,
     required this.isKycVerified,
     required this.kycStatus,
+    this.fullName = '',
   });
   final String walletId;
   final int balanceMinor;
   final String currency;
   final bool isKycVerified;
   final String kycStatus;
+  final String fullName;
 
   factory WalletSummary.fromJson(Map<String, dynamic> j) => WalletSummary(
         walletId: (j['walletId'] ?? '').toString(),
@@ -53,18 +81,19 @@ class WalletSummary {
         currency: (j['currency'] ?? 'EGP').toString(),
         isKycVerified: (j['isKycVerified'] ?? false) as bool,
         kycStatus: (j['kycStatus'] ?? 'None').toString(),
+        fullName: (j['fullName'] ?? '').toString(),
       );
 }
 
 enum TxKind { transferIn, transferOut, topup, refund, fee, unknown }
 
 TxKind parseTxKind(String s) => switch (s) {
-      'transfer_in'  => TxKind.transferIn,
+      'transfer_in' => TxKind.transferIn,
       'transfer_out' => TxKind.transferOut,
-      'topup'        => TxKind.topup,
-      'refund'       => TxKind.refund,
-      'fee'          => TxKind.fee,
-      _              => TxKind.unknown,
+      'topup' => TxKind.topup,
+      'refund' => TxKind.refund,
+      'fee' => TxKind.fee,
+      _ => TxKind.unknown,
     };
 
 class WalletTransaction {
@@ -89,12 +118,14 @@ class WalletTransaction {
   final String? reference;
   final String? counterparty;
 
-  factory WalletTransaction.fromJson(Map<String, dynamic> j) => WalletTransaction(
+  factory WalletTransaction.fromJson(Map<String, dynamic> j) =>
+      WalletTransaction(
         id: (j['id'] ?? '').toString(),
         kind: parseTxKind((j['kind'] ?? '').toString()),
         amountMinor: (j['amountMinor'] ?? 0) as int,
         currency: (j['currency'] ?? 'EGP').toString(),
-        createdAt: DateTime.parse((j['createdAt'] ?? DateTime.now().toIso8601String()) as String),
+        createdAt: DateTime.parse(
+            (j['createdAt'] ?? DateTime.now().toIso8601String()) as String),
         status: (j['status'] ?? 'Completed').toString(),
         description: j['description'] as String?,
         reference: j['reference'] as String?,
@@ -139,7 +170,8 @@ class AccountOperation {
         kind: parseTxKind((j['kind'] ?? '').toString()),
         amountMinor: (j['amountMinor'] ?? 0) as int,
         currency: (j['currency'] ?? 'EGP').toString(),
-        createdAt: DateTime.parse((j['createdAt'] ?? DateTime.now().toIso8601String()) as String),
+        createdAt: DateTime.parse(
+            (j['createdAt'] ?? DateTime.now().toIso8601String()) as String),
         description: (j['description'] ?? '').toString(),
         reference: (j['reference'] ?? '').toString(),
         status: (j['status'] ?? 'Completed').toString(),
@@ -154,7 +186,8 @@ class AccountReport {
 
   factory AccountReport.fromJson(Map<String, dynamic> j) => AccountReport(
         wallet: WalletSummary.fromJson(j['wallet'] as Map<String, dynamic>),
-        operations: (j['operations'] as List).cast<Map<String, dynamic>>()
+        operations: (j['operations'] as List)
+            .cast<Map<String, dynamic>>()
             .map(AccountOperation.fromJson)
             .toList(growable: false),
       );
@@ -183,7 +216,8 @@ class ChatMessage {
         senderId: (j['senderId'] ?? '').toString(),
         senderRole: (j['senderRole'] ?? '').toString(),
         content: (j['content'] ?? '').toString(),
-        createdAt: DateTime.parse((j['createdAt'] ?? DateTime.now().toIso8601String()) as String),
+        createdAt: DateTime.parse(
+            (j['createdAt'] ?? DateTime.now().toIso8601String()) as String),
       );
 }
 
@@ -198,9 +232,11 @@ class ChatConversationSummary {
   final ChatMessage lastMessage;
   final int messageCount;
 
-  factory ChatConversationSummary.fromJson(Map<String, dynamic> j) => ChatConversationSummary(
+  factory ChatConversationSummary.fromJson(Map<String, dynamic> j) =>
+      ChatConversationSummary(
         userId: (j['userId'] ?? '').toString(),
-        lastMessage: ChatMessage.fromJson(j['lastMessage'] as Map<String, dynamic>),
+        lastMessage:
+            ChatMessage.fromJson(j['lastMessage'] as Map<String, dynamic>),
         messageCount: (j['messageCount'] ?? 0) as int,
       );
 }
@@ -226,7 +262,8 @@ class KycStatusResponse {
   final String? decisionReason;
 
   factory KycStatusResponse.fromJson(Map<String, dynamic> j) {
-    DateTime? parse(dynamic v) => v == null ? null : DateTime.tryParse(v.toString());
+    DateTime? parse(dynamic v) =>
+        v == null ? null : DateTime.tryParse(v.toString());
     return KycStatusResponse(
       isVerified: (j['isVerified'] ?? false) as bool,
       status: (j['status'] ?? 'None').toString(),
@@ -255,7 +292,8 @@ class KycSubmitResponse {
   final double ocrConfidence;
   final List<String>? warnings;
 
-  factory KycSubmitResponse.fromJson(Map<String, dynamic> j) => KycSubmitResponse(
+  factory KycSubmitResponse.fromJson(Map<String, dynamic> j) =>
+      KycSubmitResponse(
         kycRequestId: (j['kycRequestId'] ?? '').toString(),
         status: (j['status'] ?? 'Submitted').toString(),
         matchPercentage: ((j['matchPercentage'] ?? 0) as num).toDouble(),
@@ -271,7 +309,8 @@ class LivenessChallenge {
   final String action;
   final int ttlSeconds;
 
-  factory LivenessChallenge.fromJson(Map<String, dynamic> j) => LivenessChallenge(
+  factory LivenessChallenge.fromJson(Map<String, dynamic> j) =>
+      LivenessChallenge(
         (j['challengeId'] ?? '').toString(),
         (j['action'] ?? 'blink').toString(),
         (j['ttlSeconds'] ?? 90) as int,
@@ -284,7 +323,8 @@ class LivenessVerifyResponse {
   final double confidence;
   final String? reason;
 
-  factory LivenessVerifyResponse.fromJson(Map<String, dynamic> j) => LivenessVerifyResponse(
+  factory LivenessVerifyResponse.fromJson(Map<String, dynamic> j) =>
+      LivenessVerifyResponse(
         (j['passed'] ?? false) as bool,
         ((j['confidence'] ?? 0) as num).toDouble(),
         j['reason'] as String?,
@@ -307,12 +347,14 @@ class PendingKycSummary {
   final DateTime submittedAt;
   final List<String> warnings;
 
-  factory PendingKycSummary.fromJson(Map<String, dynamic> j) => PendingKycSummary(
+  factory PendingKycSummary.fromJson(Map<String, dynamic> j) =>
+      PendingKycSummary(
         id: (j['id'] ?? '').toString(),
         userId: (j['userId'] ?? '').toString(),
         fullName: j['fullName'] as String?,
         matchPercentage: ((j['matchPercentage'] ?? 0) as num).toDouble(),
-        submittedAt: DateTime.parse((j['submittedAt'] ?? DateTime.now().toIso8601String()) as String),
+        submittedAt: DateTime.parse(
+            (j['submittedAt'] ?? DateTime.now().toIso8601String()) as String),
         warnings: ((j['warnings'] ?? []) as List).cast<String>(),
       );
 }
@@ -367,7 +409,8 @@ class PaymentIntentStatusResponse {
   final String? paymentDevice;
   final String? paymentNote;
 
-  factory PaymentIntentStatusResponse.fromJson(Map<String, dynamic> j) => PaymentIntentStatusResponse(
+  factory PaymentIntentStatusResponse.fromJson(Map<String, dynamic> j) =>
+      PaymentIntentStatusResponse(
         paymentIntentId: (j['paymentIntentId'] ?? '').toString(),
         orderReference: (j['orderReference'] ?? '').toString(),
         method: (j['method'] ?? '').toString(),
