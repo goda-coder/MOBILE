@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wallet/pages/bank_account_page.dart';
 import 'package:wallet/pages/on_boarding_page.dart';
 
 import '../models/api_models.dart';
@@ -100,6 +101,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __, navigationShell) =>
             ShellPage(navigationShell: navigationShell),
         branches: [
+          StatefulShellBranch(routes: [
+            GoRoute(
+              path: '/home',
+              builder: (context, state) {
+                return const BankAccountPage();
+              },
+            )
+          ]),
           StatefulShellBranch(
             routes: [
               GoRoute(

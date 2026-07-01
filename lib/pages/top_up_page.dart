@@ -276,7 +276,32 @@ class _TopUpPageState extends ConsumerState<TopUpPage>
                         keyboardType: TextInputType.phone,
                         hint: '+201001234567',
                       ),
+                      
+                      const SizedBox(height: 20),
 
+                      Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Amount',
+                                style: TextStyle(
+                                    color: AppColors.ink300,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500)),
+                            const SizedBox(height: 6),
+                            TextField(
+                              controller: _amount,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                      decimal: true),
+                              style: AppTheme.numTextStyle(fontSize: 26),
+                              decoration: InputDecoration(
+                                hintText: '0.00',
+                                suffixText: 'EGP',
+                                suffixStyle: AppTheme.numTextStyle(
+                                    color: AppColors.ink400, fontSize: 13),
+                              ),
+                            ),
+                          ]),
                       // Wallet phone (conditional)
                       if (_method == _Method.wallet) ...[
                         const SizedBox(height: 20),

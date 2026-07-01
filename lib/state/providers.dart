@@ -4,7 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:local_auth/local_auth.dart';
-import 'package:wallet/services/biometric_payment_service.dart' show BiometricPaymentService, PaymentResult;
+import 'package:wallet/services/biometric_payment_service.dart'
+    show BiometricPaymentService, PaymentResult;
 import 'package:wallet/services/biometric_system_service.dart';
 
 import '../api/api_client.dart';
@@ -38,7 +39,7 @@ final biometricWsUrlProvider = Provider<Uri>((ref) {
 // -- Storage + client ------------------------------------------------
 final secureStorageProvider = Provider<FlutterSecureStorage>(
   (_) => const FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+    aOptions: AndroidOptions(),
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   ),
 );
@@ -601,7 +602,7 @@ class _BiometricPaymentNotifier extends Notifier<BiometricPaymentState> {
 
       final PaymentResult? paymentResult = await wsResult.future;
       timeoutTimer.cancel();
-      await wsSub?.cancel();
+      await wsSub.cancel();
 
       late String status;
 

@@ -25,7 +25,6 @@ class WalletDashboardPage extends ConsumerWidget {
     final summary = ref.watch(_summaryProvider);
     final txs = ref.watch(_txProvider);
     final auth = ref.watch(authControllerProvider).value;
-    final role = auth?.role;
 
     return SafeArea(
       child: RefreshIndicator(
@@ -35,7 +34,7 @@ class WalletDashboardPage extends ConsumerWidget {
           await Future.delayed(const Duration(milliseconds: 250));
         },
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
           children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -70,11 +69,8 @@ class WalletDashboardPage extends ConsumerWidget {
               error: (e, _) => ErrorCard(
                   title: 'Could not load balance', message: e.toString()),
             ),
+            const SizedBox(height: 12),
 
-            const SizedBox(
-              height: 14.0,
-            ),
-            // ---- Recent activity ----
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -115,11 +111,7 @@ class _BentoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      // Big balance tile
-      BalanceCard(summary: summary),
-      const SizedBox(height: 14),
-
+    return Column(spacing: 12.0, children: [
       // Identity tile
       Card(
         child: Padding(
@@ -177,6 +169,8 @@ class _BentoRow extends StatelessWidget {
           ),
         ),
       ),
+      // Big balance tile
+      BalanceCard(summary: summary),
     ]);
   }
 }
@@ -226,16 +220,6 @@ class BalanceCard extends StatelessWidget {
                         icon: Icons.north_east,
                         expand: true,
                         onPressed: () => context.push('/transfer'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: AppButton(
-                        label: 'Top up',
-                        icon: Icons.add,
-                        variant: AppButtonVariant.ghost,
-                        expand: true,
-                        onPressed: () => context.push('/top-up'),
                       ),
                     ),
                   ],
@@ -358,54 +342,6 @@ class _Empty extends StatelessWidget {
           child: Text(text,
               textAlign: TextAlign.center,
               style: const TextStyle(color: AppColors.ink400, fontSize: 13))),
-    );
-  }
-}
-
-class _RoleDashboardCard extends StatelessWidget {
-  const _RoleDashboardCard({required this.role});
-  final Role role;
-
-  @override
-  Widget build(BuildContext context) {
-    final title = role == Role.admin
-        ? 'Admin dashboard'
-        : role == Role.merchant
-            ? 'Merchant dashboard'
-            : 'Customer dashboard';
-    final subtitle = role == Role.admin
-        ? 'Review KYC requests and manage the platform.'
-        : role == Role.merchant
-            ? 'Receive payments and track your store orders.'
-            : 'Send money, top up, and verify your wallet.';
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(title,
-              style:
-                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 8),
-          Text(subtitle, style: const TextStyle(color: AppColors.ink400)),
-          const SizedBox(height: 14),
-          Row(spacing: 12.0, children: [
-            if (role == Role.admin)
-              AppButton(
-                  label: 'Review KYC',
-                  onPressed: () => context.push('/admin/kyc')),
-            if (role == Role.merchant)
-              AppButton(
-                  label: 'Receive',
-                  variant: AppButtonVariant.ghost,
-                  onPressed: () => context.push('/merchant/qr')),
-            AppButton(
-                label: 'Fingerprint pay',
-                variant: AppButtonVariant.ghost,
-                onPressed: () => context.push('/top-up?method=fingerprint')),
-          ]),
-        ]),
-      ),
     );
   }
 }
