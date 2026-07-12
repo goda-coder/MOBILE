@@ -8,6 +8,7 @@ import '../utils/format.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_input.dart';
 import '../widgets/status_pill.dart';
+import '../models/api_models.dart';
 
 final _pendingProvider = FutureProvider.autoDispose(
   (ref) => ref.read(adminApiProvider).pendingKyc(skip: 0, take: 50),
@@ -139,11 +140,6 @@ class _AdminKycReviewPageState extends ConsumerState<AdminKycReviewPage> {
                                 const SizedBox(height: 8),
                                 Row(children: [
                                   _MetaCol(
-                                      label: 'Match',
-                                      value:
-                                          '${list[i].matchPercentage.round()}%'),
-                                  const SizedBox(width: 16),
-                                  _MetaCol(
                                       label: 'Submitted',
                                       value:
                                           formatRelative(list[i].submittedAt)),
@@ -169,35 +165,14 @@ class _AdminKycReviewPageState extends ConsumerState<AdminKycReviewPage> {
                   )),
                 if (_selectedId != null) ...[
                   const SizedBox(height: 14),
-                  Card(
-                      child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Reviewing ${_selectedId!.substring(0, 12)}…',
-                              style: const TextStyle(
-                                  color: AppColors.ink400, fontSize: 12)),
-                          const SizedBox(height: 10),
-                          AppInput(
-                            controller: _reason,
-                            label: 'Reason',
-                            helper: 'Recorded in the audit trail.',
-                          ),
-                          const SizedBox(height: 14),
-                          Wrap(spacing: 8, children: [
-                            AppButton(
-                                label: 'Approve',
-                                onPressed: () => _act(true),
-                                loading: _busy),
-                            AppButton(
-                                label: 'Reject',
-                                variant: AppButtonVariant.danger,
-                                onPressed: () => _act(false),
-                                loading: _busy),
-                          ]),
-                        ]),
-                  )),
+                  _ReviewCard(
+                    selectedId: _selectedId!,
+                    pending: list,
+                    baseUrl: ref.read(apiBaseUrlProvider),
+                    reasonController: _reason,
+                    busy: _busy,
+                    onAct: _act,
+                  ),
                 ],
               ],
             ),
@@ -220,5 +195,116 @@ class _MetaCol extends StatelessWidget {
       const SizedBox(height: 2),
       Text(value, style: const TextStyle(fontSize: 13)),
     ]);
+  }
+}
+
+class _ReviewCard extends StatelessWidget {
+  const _ReviewCard({
+    required this.selectedId,
+    required this.pending,
+    required this.baseUrl,
+    required this.reasonController,
+    required this.busy,
+    required this.onAct,
+  });
+
+  final String selectedId;
+  final List<PendingKycSummary> pending;
+  final String baseUrl;
+  final TextEditingController reasonController;
+  final bool busy;
+  final Future<void> Function(bool approve) onAct;
+
+  PendingKycSummary? get _item {
+    for (final item in pending) {
+      if (item.id == selectedId) return item;
+    }
+    return null;
+  }
+
+  Widget _imageCard(String label, String? url) {
+    if (url == null) return const SizedBox.shrink();
+    final fullUrl = url.startsWith('http') ? url : '$baseUrl$url';
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(label,
+          style: const TextStyle(
+              color: AppColors.ink400, fontSize: 11, fontWeight: FontWeight.w500)),
+      const SizedBox(height: 6),
+      ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.network(
+          fullUrl,
+          height: 180,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => Container(
+            height: 180,
+            decoration: BoxDecoration(
+              color: AppColors.ink800,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Center(
+              child: Icon(Icons.broken_image_outlined,
+                  color: AppColors.ink500, size: 32),
+            ),
+          ),
+          loadingBuilder: (_, child, progress) {
+            if (progress == null) return child;
+            return Container(
+              height: 180,
+              decoration: BoxDecoration(
+                color: AppColors.ink800,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Center(child: CircularProgressIndicator()),
+            );
+          },
+        ),
+      ),
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final item = _item;
+    if (item == null) return const SizedBox.shrink();
+
+    return Card(
+        child: Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Reviewing ${selectedId.substring(0, 12)}…',
+                style: const TextStyle(
+                    color: AppColors.ink400, fontSize: 12)),
+            const SizedBox(height: 14),
+            _imageCard('ID Front', item.idFrontUrl),
+            if (item.idBackUrl != null) ...[
+              const SizedBox(height: 12),
+              _imageCard('ID Back', item.idBackUrl),
+            ],
+            const SizedBox(height: 12),
+            _imageCard('Selfie', item.selfieUrl),
+            const SizedBox(height: 16),
+            AppInput(
+              controller: reasonController,
+              label: 'Reason',
+              helper: 'Recorded in the audit trail.',
+            ),
+            const SizedBox(height: 14),
+            Wrap(spacing: 8, children: [
+              AppButton(
+                  label: 'Approve',
+                  onPressed: () => onAct(true),
+                  loading: busy),
+              AppButton(
+                  label: 'Reject',
+                  variant: AppButtonVariant.danger,
+                  onPressed: () => onAct(false),
+                  loading: busy),
+            ]),
+          ]),
+    ));
   }
 }

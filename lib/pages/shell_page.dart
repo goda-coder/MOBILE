@@ -26,21 +26,19 @@ class ShellPage extends ConsumerWidget {
     final branchIndices = <int>[
       0, // Wallet
       1, // Send
-      2, // Send
-      if (role == Role.merchant || role == Role.admin) 3, // Receive
-      if (role == Role.admin) 4, // Admin
-      5, // Me
+      if (role == Role.merchant || role == Role.admin) 2, // Receive
+      if (role == Role.admin) 3, // Admin
+      4, // Me
     ];
 
     final tabs = <_Tab>[
-      const _Tab('Home', Icons.home, 0),
-      const _Tab('Wallet', Icons.account_balance_wallet_outlined, 1),
-      const _Tab('Send', Icons.send_outlined, 2),
+      const _Tab('Wallet', Icons.account_balance_wallet_outlined, 0),
+      const _Tab('Send', Icons.send_outlined, 1),
       if (role == Role.merchant || role == Role.admin)
-        const _Tab('Receive', Icons.qr_code_2_outlined, 3),
+        const _Tab('Receive', Icons.qr_code_2_outlined, 2),
       if (role == Role.admin)
-        const _Tab('Admin', Icons.admin_panel_settings_outlined, 4),
-      const _Tab('Me', Icons.person_outline, 5),
+        const _Tab('Admin', Icons.admin_panel_settings_outlined, 3),
+      const _Tab('Me', Icons.person_outline, 4),
     ];
 
     final currentBranch = navigationShell.currentIndex;

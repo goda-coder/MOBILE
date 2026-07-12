@@ -168,7 +168,7 @@ for (const user of seedUsers) {
   if (!findUserByEmail(user.email)) createUser(user);
 }
 
-const createKycRequest = ({ userId, fullName, phoneNumber, documentType, status, matchPercentage, warnings }) => {
+const createKycRequest = ({ userId, fullName, phoneNumber, documentType, status, matchPercentage, warnings, idFrontPath, idBackPath, selfiePath }) => {
   const id = uuidv4();
   const request = {
     id,
@@ -179,6 +179,9 @@ const createKycRequest = ({ userId, fullName, phoneNumber, documentType, status,
     status,
     matchPercentage,
     warnings,
+    idFrontPath: idFrontPath ?? null,
+    idBackPath: idBackPath ?? null,
+    selfiePath: selfiePath ?? null,
     submittedAt: new Date().toISOString(),
     decidedAt: null,
     decisionReason: null,

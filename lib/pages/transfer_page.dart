@@ -3,14 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wallet/widgets/inline_alert.dart';
 
-import '../api/api_client.dart';
-import '../state/providers.dart';
 import '../theme/app_theme.dart';
 import '../theme/colors.dart';
 import '../utils/format.dart';
 import '../widgets/app_button.dart';
 import '../widgets/app_input.dart';
 import '../widgets/status_pill.dart';
+import '../models/transfer_data.dart';
+import '../services/kyc_guard.dart';
 
 class TransferPage extends ConsumerStatefulWidget {
   const TransferPage({super.key});
@@ -23,8 +23,7 @@ class _TransferPageState extends ConsumerState<TransferPage> {
   final _amount = TextEditingController();
   final _desc = TextEditingController();
   String? _error;
-  String? _success;
-  bool _busy = false;
+  final bool _busy = false;
 
   @override
   void dispose() {
@@ -35,77 +34,27 @@ class _TransferPageState extends ConsumerState<TransferPage> {
   }
 
   Future<void> _submit() async {
-    setState(() {
-      _error = null;
-      _success = null;
-    });
+    setState(() => _error = null);
 
-    // Check if KYC is verified first
-    final isKycVerified =
-        await ref.read(isKycVerifiedProvider.future).catchError((_) => false);
-    if (!isKycVerified) {
-      setState(() => _error =
-          'Complete identity verification first to proceed with transfer.');
-      // Show a dialog and redirect to KYC
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('KYC Verification Required'),
-            content: const Text(
-                'You must complete your identity verification before you can perform this operation.'),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel')),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  if (mounted) context.push('/kyc/status');
-                },
-                child: const Text('Go to KYC'),
-              ),
-            ],
-          ),
-        );
-      }
-      return;
-    }
+    if (!await KycGuard.ensureVerified(context, ref)) return;
 
     final minor = parseMinor(_amount.text);
     if (minor == null || minor <= 0) {
       setState(() => _error = 'Enter a valid amount (e.g. 25.00).');
       return;
     }
-    setState(() => _busy = true);
-    try {
-      // Idempotency key — server uses this as Transaction.Reference unique-key.
-      final idempotencyRef =
-          'tr-${DateTime.now().microsecondsSinceEpoch}-${UniqueKey().hashCode}';
-      final r = await _doTransfer(idempotencyRef);
-      setState(() {
-        _success = 'Sent. New balance: ${formatMoney(r.newBalanceMinor)}';
-        _recipient.clear();
-        _amount.clear();
-        _desc.clear();
-      });
-    } on ApiError catch (e) {
-      setState(() => _error = e.message);
-    } catch (_) {
-      setState(() => _error = 'Could not complete transfer.');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
 
-  Future _doTransfer(String reference) {
-    final minor = parseMinor(_amount.text)!;
-    return ref.read(walletApiProvider).transfer(
-          recipientIdentifier: _recipient.text.trim(),
-          amountMinor: minor,
-          reference: reference,
-          description: _desc.text.trim().isEmpty ? null : _desc.text.trim(),
-        );
+    final idempotencyRef =
+        'tr-${DateTime.now().microsecondsSinceEpoch}-${UniqueKey().hashCode}';
+    final data = TransferData(
+      recipient: _recipient.text.trim(),
+      amountMinor: minor,
+      amountFormatted: formatMoney(minor),
+      description: _desc.text.trim().isEmpty ? null : _desc.text.trim(),
+      idempotencyRef: idempotencyRef,
+    );
+
+    if (mounted) context.push('/fraud-detection', extra: data);
   }
 
   @override
@@ -131,37 +80,6 @@ class _TransferPageState extends ConsumerState<TransferPage> {
             if (_error != null) ...[
               ErrorCard(message: _error!),
               const SizedBox(height: 12)
-            ],
-            if (_success != null) ...[
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.1),
-                  border: Border.all(
-                      color: AppColors.success.withValues(alpha: 0.3)),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Transfer sent.',
-                          style: TextStyle(
-                              color: AppColors.success,
-                              fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 4),
-                      Text(_success!,
-                          style: const TextStyle(color: AppColors.ink200)),
-                      const SizedBox(height: 6),
-                      TextButton(
-                        onPressed: () => context.go('/'),
-                        style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            minimumSize: const Size(0, 0)),
-                        child: const Text('Back to wallet ↗'),
-                      ),
-                    ]),
-              ),
-              const SizedBox(height: 12),
             ],
             Card(
               child: Padding(

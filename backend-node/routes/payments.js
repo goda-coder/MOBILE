@@ -1,19 +1,17 @@
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
 // تم إضافة getTransaction للتحقق من حالة المعاملة الفعلية
-import { addOperation, isUserKycVerified, getTransaction } from '../store.js'; 
+import { addOperation, getTransaction } from '../store.js'; 
 import * as paymentController from '../controllers/paymentController.js';
+import { requireKyc } from '../middleware/requireKyc.js';
 
 const router = express.Router();
 
-router.post('/checkout', (req, res) => {
+router.post('/checkout', requireKyc, (req, res) => {
   const { amountMinor, method, firstName, lastName, email, phoneNumber, currency, walletPhoneNumber } = req.body;
   
   if (!amountMinor || !method || !firstName || !lastName || !email || !phoneNumber) {
     return res.status(400).json({ code: 'INVALID_INPUT', message: 'Required payment fields are missing' });
-  }
-  if (!isUserKycVerified(req.user.userId)) {
-    return res.status(403).json({ code: 'KYC_REQUIRED', message: 'KYC verification is required before payment operations.' });
   }
 
   const allowedMethods = new Set(['card', 'wallet', 'fingerprint']);
@@ -92,7 +90,6 @@ router.get('/status/:paymentIntentId', (req, res) => {
 
 // --- المسارات الجديدة للربط بنظام البصمة والدفع الفوري ---
 
-// 1. مسار مراقبة حالة الـ Transaction الفعلية (عشان الـ Flutter Service تستخدمه)
 router.get('/transaction-status/:transactionId', (req, res) => {
   const { transactionId } = req.params;
   const tx = getTransaction(transactionId);
@@ -101,13 +98,13 @@ router.get('/transaction-status/:transactionId', (req, res) => {
   }
   return res.json({
     transaction_id: tx.id,
-    status: tx.status, // هيرجع PENDING أو SUCCESS أو FAILED
+    status: tx.status, 
     completed_at: tx.completedAt
   });
 });
 
 // 2. مسارات تهيئة وتأكيد الدفع
-router.post('/initiate', paymentController.initiate);
-router.post('/confirm', paymentController.confirm);
+router.post('/initiate', requireKyc, paymentController.initiate);
+router.post('/confirm', requireKyc, paymentController.confirm);
 
 export default router;

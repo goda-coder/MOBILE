@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wallet/pages/bank_account_page.dart';
 import 'package:wallet/pages/on_boarding_page.dart';
 
 import '../models/api_models.dart';
+import '../models/fraud_result.dart';
+import '../models/transfer_data.dart';
 import '../pages/admin_kyc_review_page.dart';
 import '../pages/chat_page.dart';
 import '../pages/enable_biometrics_page.dart';
 import '../pages/fingerprint_auth_page.dart';
+import '../pages/fraud_detection_guard_page.dart';
+import '../pages/fraud_high_risk_page.dart';
 import '../pages/kyc_liveness_page.dart';
 import '../pages/kyc_status_page.dart';
 import '../pages/kyc_submit_page.dart';
@@ -16,7 +19,9 @@ import '../pages/login_page.dart';
 import '../pages/merchant_qr_page.dart';
 import '../pages/notifications_page.dart';
 import '../pages/payment_result_page.dart';
+import '../pages/pin_code_page.dart';
 import '../pages/profile_page.dart';
+import '../pages/recipient_confirmation_page.dart';
 import '../pages/register_page.dart';
 import '../pages/report_page.dart';
 import '../pages/shell_page.dart';
@@ -96,19 +101,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           path: '/chat',
           builder: (_, state) =>
               ChatPage(userId: state.uri.queryParameters['userId'])),
-      // Authenticated app with the bottom-nav shell
+      GoRoute(
+          path: '/fraud-detection',
+          builder: (_, state) => FraudDetectionGuardPage(
+              data: state.extra as TransferData)),
+      GoRoute(
+          path: '/fraud-high-risk',
+          builder: (_, state) => FraudHighRiskPage(
+              result: state.extra as FraudCheckResult?)),
+      GoRoute(
+          path: '/recipient-confirmation',
+          builder: (_, state) => RecipientConfirmationPage(
+              data: state.extra as TransferData)),
+      GoRoute(
+          path: '/pin-code',
+          builder: (_, state) =>
+              PinCodePage(data: state.extra as TransferData)),
       StatefulShellRoute.indexedStack(
         builder: (_, __, navigationShell) =>
             ShellPage(navigationShell: navigationShell),
         branches: [
-          StatefulShellBranch(routes: [
-            GoRoute(
-              path: '/home',
-              builder: (context, state) {
-                return const BankAccountPage();
-              },
-            )
-          ]),
           StatefulShellBranch(
             routes: [
               GoRoute(

@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import authRouter from './routes/auth.js';
 import walletRouter from './routes/wallet.js';
 import paymentsRouter from './routes/payments.js';
@@ -9,19 +11,21 @@ import adminRouter from './routes/admin.js';
 import fingerprintRouter from './routes/fingerprint.js';
 import fingerprintDeviceRouter from './routes/fingerprintRoutes.js';
 import chatRouter from './routes/chat.js';
+import fraudRouter from './routes/fraud.js';
 import { authenticate } from './middleware/auth.js';
 import { getUserById } from './store.js';
 
 dotenv.config();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const port = process.env.PORT || 8081;
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use('/api/fingerprint', fingerprintDeviceRouter);
-
 app.use('/api/v1/auth', authRouter);
 app.use('/api/v1/wallet', authenticate, walletRouter);
 app.use('/api/v1/payments', authenticate, paymentsRouter);
@@ -30,6 +34,7 @@ app.use('/api/v1/kyc', authenticate, kycRouter);
 app.use('/api/v1/admin', authenticate, adminRouter);
 app.use('/api/v1/fingerprint', authenticate, fingerprintRouter);
 app.use('/api/v1/chat', authenticate, chatRouter);
+app.use('/api/v1/fraud', authenticate, fraudRouter);
 
 app.get('/api/v1/profile', authenticate, (req, res) => {
   const user = req.user;

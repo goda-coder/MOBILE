@@ -21,6 +21,9 @@ router.get('/kyc/pending', (req, res) => {
     matchPercentage: item.matchPercentage,
     submittedAt: item.submittedAt,
     warnings: item.warnings,
+    idFrontUrl: item.idFrontPath ? `/uploads/kyc/${item.idFrontPath}` : null,
+    idBackUrl: item.idBackPath ? `/uploads/kyc/${item.idBackPath}` : null,
+    selfieUrl: item.selfiePath ? `/uploads/kyc/${item.selfiePath}` : null,
   }));
   return res.json(pending);
 });

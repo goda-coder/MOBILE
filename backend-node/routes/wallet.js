@@ -1,6 +1,8 @@
 import express from 'express';
-import { getWallet, addOperation, getWalletTransactions, getOperations, findUserByEmail, findUserByPhone, findUserByWalletId, creditWallet, getKycStatus, isUserKycVerified } from '../store.js';
+import { getWallet, addOperation, getWalletTransactions, getOperations, findUserByEmail, findUserByPhone, findUserByWalletId, creditWallet, getKycStatus } from '../store.js';
 import { v4 as uuidv4 } from 'uuid';
+import { runFraudCheck } from '../middleware/fraudDetection.js';
+import { requireKyc } from '../middleware/requireKyc.js';
 
 const router = express.Router();
 
@@ -51,13 +53,10 @@ router.get('/reports', (req, res) => {
   return res.json({ wallet, operations });
 });
 
-router.post('/transfer', (req, res) => {
+router.post('/transfer', requireKyc, async (req, res) => {
   const { recipientIdentifier, amountMinor, currency, reference, description } = req.body;
   if (!recipientIdentifier || !amountMinor || !reference) {
     return res.status(400).json({ code: 'INVALID_INPUT', message: 'recipientIdentifier, amountMinor and reference are required' });
-  }
-  if (!isUserKycVerified(req.user.userId)) {
-    return res.status(403).json({ code: 'KYC_REQUIRED', message: 'KYC verification is required before funds transfers.' });
   }
 
   const wallet = getWallet(req.user.userId);
@@ -73,6 +72,21 @@ router.post('/transfer', (req, res) => {
   const recipientWallet = getWallet(recipient.userId);
   if (!recipientWallet) {
     return res.status(404).json({ code: 'RECIPIENT_WALLET_NOT_FOUND', message: 'Recipient wallet not found' });
+  }
+
+  const fraudResult = await runFraudCheck({
+    senderUserId: req.user.userId,
+    recipientUserId: recipient.userId,
+    amountMinor,
+    senderBalanceBefore: wallet.balanceMinor,
+    recipientBalanceBefore: recipientWallet.balanceMinor,
+  });
+  if (!fraudResult.passed) {
+    return res.status(403).json({
+      code: 'FRAUD_BLOCKED',
+      message: 'Transaction blocked by fraud detection.',
+      details: fraudResult,
+    });
   }
 
   wallet.balanceMinor -= amountMinor;

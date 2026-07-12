@@ -339,6 +339,9 @@ class PendingKycSummary {
     required this.submittedAt,
     required this.warnings,
     this.fullName,
+    this.idFrontUrl,
+    this.idBackUrl,
+    this.selfieUrl,
   });
   final String id;
   final String userId;
@@ -346,6 +349,9 @@ class PendingKycSummary {
   final double matchPercentage;
   final DateTime submittedAt;
   final List<String> warnings;
+  final String? idFrontUrl;
+  final String? idBackUrl;
+  final String? selfieUrl;
 
   factory PendingKycSummary.fromJson(Map<String, dynamic> j) =>
       PendingKycSummary(
@@ -356,6 +362,9 @@ class PendingKycSummary {
         submittedAt: DateTime.parse(
             (j['submittedAt'] ?? DateTime.now().toIso8601String()) as String),
         warnings: ((j['warnings'] ?? []) as List).cast<String>(),
+        idFrontUrl: j['idFrontUrl'] as String?,
+        idBackUrl: j['idBackUrl'] as String?,
+        selfieUrl: j['selfieUrl'] as String?,
       );
 }
 

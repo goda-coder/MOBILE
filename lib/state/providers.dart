@@ -12,6 +12,7 @@ import '../api/api_client.dart';
 import '../services/biometric_auth_service.dart';
 import '../api/auth_api.dart';
 import '../api/chat_api.dart';
+import '../api/fraud_api.dart';
 import '../api/kyc_api.dart';
 import '../api/payments_api.dart';
 import '../api/wallet_api.dart';
@@ -25,7 +26,7 @@ final String _defaultBaseUrl = _envBaseUrl.isNotEmpty
     ? _envBaseUrl
     : (kIsWeb
         ? '${Uri.base.scheme == 'https' ? 'https' : 'http'}://${Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost'}:8081'
-        : 'http://192.168.1.12:8081');
+        : 'https://backend-node-woad.vercel.app');
 
 final apiBaseUrlProvider = Provider<String>((_) => _defaultBaseUrl);
 
@@ -63,6 +64,8 @@ final chatApiProvider = Provider((ref) => ChatApi(ref.read(apiClientProvider)));
 final kycApiProvider = Provider((ref) => KycApi(ref.read(apiClientProvider)));
 final paymentsApiProvider =
     Provider((ref) => PaymentsApi(ref.read(apiClientProvider)));
+final fraudApiProvider =
+    Provider((ref) => FraudApi(ref.read(apiClientProvider)));
 final adminApiProvider =
     Provider((ref) => AdminApi(ref.read(apiClientProvider)));
 

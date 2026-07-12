@@ -6,6 +6,7 @@ import {
   atomicTransfer,
   findUserByPhone,
   addOperation,
+  isUserKycVerified,
 } from '../store.js';
 import { runFraudCheck } from '../middleware/fraudDetection.js';
 
@@ -25,6 +26,13 @@ export const initiatePayment = ({ merchantId, targetUserId, amountMinor }) => { 
     const err = new Error('Target user not found with this phone number');
     err.status = 404;
     err.code = 'USER_NOT_FOUND';
+    throw err;
+  }
+
+  if (!isUserKycVerified(targetUser.userId)) {
+    const err = new Error('Target user KYC is not verified.');
+    err.status = 403;
+    err.code = 'KYC_REQUIRED';
     throw err;
   }
 
@@ -68,6 +76,14 @@ export const confirmPayment = async ({ transactionId, verificationToken }) => {
     const err = new Error('Transaction is not in PENDING state');
     err.status = 409;
     err.code = 'INVALID_STATE';
+    throw err;
+  }
+
+  if (!isUserKycVerified(tx.merchantId) || !isUserKycVerified(tx.targetUserId)) {
+    updateTransactionStatus(transactionId, 'FAILED');
+    const err = new Error('KYC verification is required for both parties before completing this payment.');
+    err.status = 403;
+    err.code = 'KYC_REQUIRED';
     throw err;
   }
 

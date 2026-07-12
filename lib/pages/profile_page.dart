@@ -187,9 +187,8 @@ class UserLimits extends StatelessWidget {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          children: [
+          padding: const EdgeInsets.all(24.0),
+          child: Column(children: [
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               spacing: 12.0,
@@ -215,35 +214,7 @@ class UserLimits extends StatelessWidget {
             const SizedBox(
               height: 24.0,
             ),
-            const Divider(),
-            const SizedBox(
-              height: 24.0,
-            ),
-            Column(
-              spacing: 12.0,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Bank Limit",
-                  style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                      fontWeight: FontWeight.bold),
-                ),
-                const UserLimitSection(
-                  title: "daily",
-                  currentUsage: 5000,
-                  upperLimit: 70000,
-                ),
-                const UserLimitSection(
-                  title: "monthly",
-                  currentUsage: 100000,
-                  upperLimit: 250000,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
+          ])),
     );
   }
 }
