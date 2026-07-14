@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-
 import '../api/api_client.dart';
+import '../services/auth_guards.dart';
 import '../state/providers.dart';
 import '../theme/app_theme.dart';
 import '../theme/colors.dart';
@@ -10,6 +9,7 @@ import '../utils/format.dart';
 import '../widgets/app_button.dart';
 import '../widgets/qr_scanner.dart';
 import '../widgets/status_pill.dart';
+import '../utils/self_transfer.dart';
 
 class _Parsed {
   _Parsed(this.merchantId, this.amountMinor, this.note);
@@ -42,6 +42,11 @@ class _ScanBottomSheetState extends ConsumerState<ScanBottomSheet> {
       if (merchantId.isEmpty || amountMinor == null || amountMinor <= 0) {
         throw const FormatException('QR is missing required fields.');
       }
+      final auth = ref.read(authControllerProvider).value;
+      if (isSelfTransfer(merchantId,
+          userId: auth?.userId, phoneNumber: auth?.phoneNumber)) {
+        throw const FormatException("This is your own QR — you can't pay yourself.");
+      }
       setState(() => _parsed =
           _Parsed(merchantId, amountMinor, uri.queryParameters['note']));
     } catch (e) {
@@ -53,33 +58,7 @@ class _ScanBottomSheetState extends ConsumerState<ScanBottomSheet> {
     final p = _parsed;
     if (p == null) return;
 
-    final isKycVerified =
-        await ref.read(isKycVerifiedProvider.future).catchError((_) => false);
-    if (!isKycVerified) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('KYC Verification Required'),
-            content: const Text(
-                'You must complete your identity verification before you can make payments.'),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel')),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  if (mounted) context.push('/kyc/status');
-                },
-                child: const Text('Go to KYC'),
-              ),
-            ],
-          ),
-        );
-      }
-      return;
-    }
+    if (!await AuthGuards.requireWalletAccess(context, ref)) return;
 
     setState(() {
       _paying = true;

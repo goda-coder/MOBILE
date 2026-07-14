@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../models/api_models.dart';
 import '../state/providers.dart';
 import '../theme/colors.dart';
+import '../utils/format.dart';
 import '../widgets/app_button.dart';
 import '../widgets/status_pill.dart';
 
@@ -52,7 +53,7 @@ class ProfilePage extends ConsumerWidget {
                   ]),
             )),
             const SizedBox(height: 16),
-            const UserLimits(limits: [0.5, 0.5]),
+            const _TransferLimits(),
             const SizedBox(height: 16),
             const _UserSecurity(),
           ],
@@ -74,6 +75,7 @@ class _UserSecurity extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authControllerProvider).value;
     return Card(
         child: Padding(
       padding: const EdgeInsets.all(24.0),
@@ -81,12 +83,20 @@ class _UserSecurity extends ConsumerWidget {
         const Text('Security', style: TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
         ListTile(
-          onTap: () {},
+          onTap: () => context.push('/change-password'),
           leading: const Icon(Icons.lock_outline),
           contentPadding: EdgeInsets.zero,
           title: const Text("Change password"),
           trailing: const Icon(Icons.chevron_right),
         ),
+        if (auth?.hasPin == true)
+          ListTile(
+            onTap: () => context.push('/reset-pin'),
+            leading: const Icon(Icons.pin_outlined),
+            contentPadding: EdgeInsets.zero,
+            title: const Text("Reset Security PIN"),
+            trailing: const Icon(Icons.chevron_right),
+          ),
         const SizedBox(
           height: 8.0,
         ),
@@ -177,110 +187,173 @@ class _Row extends StatelessWidget {
   }
 }
 
-class UserLimits extends StatelessWidget {
-  const UserLimits({super.key, required this.limits});
-  final List<double> limits;
+class _TransferLimits extends ConsumerWidget {
+  const _TransferLimits();
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Card(
-      child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(children: [
-            Column(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final limitsAsync = ref.watch(transferLimitsProvider);
+    return limitsAsync.when(
+      data: (limits) {
+        if (limits == null) return const SizedBox.shrink();
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: 12.0,
               children: [
                 Text(
-                  "Wallet Limit",
-                  style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                      fontWeight: FontWeight.bold),
+                  'Transfer Limits',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
-                const UserLimitSection(
-                  title: "daily",
-                  currentUsage: 0,
-                  upperLimit: 5000.0,
+                const SizedBox(height: 16),
+                _LimitCard(
+                  title: 'Daily Limit',
+                  used: limits.dailyUsed,
+                  limit: limits.dailyLimit,
+                  remaining: limits.dailyRemaining,
+                  resetAt: limits.dailyResetAt,
                 ),
-                const UserLimitSection(
-                  title: "monthly",
-                  currentUsage: 0,
-                  upperLimit: 20000.0,
+                const SizedBox(height: 16),
+                _LimitCard(
+                  title: 'Monthly Limit',
+                  used: limits.monthlyUsed,
+                  limit: limits.monthlyLimit,
+                  remaining: limits.monthlyRemaining,
+                  resetAt: limits.monthlyResetAt,
                 ),
               ],
             ),
-            const SizedBox(
-              height: 24.0,
-            ),
-          ])),
+          ),
+        );
+      },
+      loading: () => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              Text('Transfer Limits',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              const Center(
+                  child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )),
+            ],
+          ),
+        ),
+      ),
+      error: (_, __) => const SizedBox.shrink(),
     );
   }
 }
 
-class UserLimitSection extends StatelessWidget {
-  const UserLimitSection(
-      {super.key,
-      required this.title,
-      required this.upperLimit,
-      required this.currentUsage});
+class _LimitCard extends StatelessWidget {
+  const _LimitCard({
+    required this.title,
+    required this.used,
+    required this.limit,
+    required this.remaining,
+    required this.resetAt,
+  });
 
   final String title;
-  final double upperLimit;
-  final double currentUsage;
+  final int used;
+  final int limit;
+  final int remaining;
+  final String resetAt;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final percent = (currentUsage / upperLimit);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: 4.0,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              title,
-              style: theme.textTheme.bodyLarge
-                  ?.copyWith(color: theme.colorScheme.primary),
-            ),
-            Text(
-              "${(percent * 100).toStringAsFixed(0)}%",
-              style: theme.textTheme.bodyLarge
-                  ?.copyWith(color: theme.colorScheme.primary),
-            ),
-          ],
-        ),
-        Column(
-          spacing: 8.0,
-          children: [
-            LinearProgressIndicator(
-              value: percent,
-              minHeight: 6.0,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  "$currentUsage EG",
-                  style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant
-                          .withValues(alpha: .6)),
-                ),
-                Text(
-                  "$upperLimit EG",
-                  style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant
-                          .withValues(alpha: .6)),
-                )
-              ],
-            ),
-          ],
-        ),
-      ],
+    final percent = limit > 0 ? used / limit : 0.0;
+    final resetLabel = _formatReset(resetAt);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.ink800.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.ink700.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(title,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: theme.colorScheme.onSurface,
+                  )),
+              Text('${formatAmount(used)} / ${formatAmount(limit)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.ink400,
+                  )),
+            ],
+          ),
+          const SizedBox(height: 10),
+          LinearProgressIndicator(
+            value: percent.clamp(0.0, 1.0),
+            minHeight: 8,
+            borderRadius: BorderRadius.circular(4),
+            color: percent >= 1.0
+                ? AppColors.danger
+                : percent >= 0.8
+                    ? AppColors.warning
+                    : AppColors.brandPrimary,
+            backgroundColor: AppColors.ink700,
+          ),
+          const SizedBox(height: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Remaining: ${formatAmount(remaining)}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: remaining > 0 ? AppColors.ink300 : AppColors.danger,
+                  )),
+              Text('Resets: $resetLabel',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: AppColors.ink400,
+                  )),
+            ],
+          ),
+        ],
+      ),
     );
   }
+
+  String _formatReset(String iso) {
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return '';
+    final now = DateTime.now();
+    final diff = dt.difference(now);
+    if (diff.inHours < 24) {
+      return 'Tomorrow at 12:00 AM';
+    }
+    return '${dt.day} ${_months[dt.month - 1]}';
+  }
 }
+
+const _months = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];

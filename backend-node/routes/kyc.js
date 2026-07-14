@@ -18,7 +18,11 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({
+  storage, limits: {
+    fileSize: 10 * 1024 * 1024, //10MB
+  }
+});
 
 const router = express.Router();
 
@@ -36,7 +40,7 @@ router.post('/submit', upload.fields([
   if (!documentType || !req.files || !req.files.idFront || !req.files.selfie) {
     return res.status(400).json({ code: 'INVALID_INPUT', message: 'Missing documentType, idFront, or selfie' });
   }
-
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
   const idFrontFile = req.files.idFront[0];
   const idBackFile = req.files.idBack?.[0] ?? null;
   const selfieFile = req.files.selfie[0];
@@ -61,9 +65,9 @@ router.post('/submit', upload.fields([
     spoofScore: 0.0,
     ocrConfidence: 0.0,
     warnings: [],
-    idFrontUrl: `/uploads/kyc/${idFrontFile.filename}`,
-    idBackUrl: idBackFile ? `/uploads/kyc/${idBackFile.filename}` : null,
-    selfieUrl: `/uploads/kyc/${selfieFile.filename}`,
+    idFrontUrl: `${baseUrl}/uploads/kyc/${idFrontFile.filename}`,
+    idBackUrl: idBackFile ? `${baseUrl}/uploads/kyc/${idBackFile.filename}` : null,
+    selfieUrl: `${baseUrl}/uploads/kyc/${selfieFile.filename}`,
   });
 });
 

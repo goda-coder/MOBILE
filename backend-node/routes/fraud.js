@@ -1,10 +1,11 @@
 import express from 'express';
 import { getWallet, findUserByEmail, findUserByPhone, findUserByWalletId } from '../store.js';
 import { runFraudCheck } from '../middleware/fraudDetection.js';
+import { requireAccountSetup } from '../middleware/requireAccountSetup.js';
 
 const router = express.Router();
 
-router.post('/check', async (req, res) => {
+router.post('/check', requireAccountSetup, async (req, res) => {
   const { recipientIdentifier, amountMinor, description } = req.body;
   if (!recipientIdentifier || !amountMinor) {
     return res.status(400).json({ code: 'INVALID_INPUT', message: 'recipientIdentifier and amountMinor are required' });

@@ -1,7 +1,8 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { createUser, findUserByEmail, findUserByPhone, findUserByName, getUserById, addRefreshToken, getUserIdByRefreshToken, revokeRefreshToken, getUserIdByFingerprintId } from '../store.js';
+import { createUser, findUserByEmail, findUserByPhone, findUserByName, getUserById, addRefreshToken, getUserIdByRefreshToken, revokeRefreshToken, revokeAllRefreshTokens, getUserIdByFingerprintId, createPin, verifyPin, hasPin, updatePassword, updatePin, isPasswordChangeLocked, recordPasswordChangeAttempt, isPinResetLocked, recordPinResetAttempt } from '../store.js';
+import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
 const secret = "instashiled_on_the_top" || 'secret';
@@ -33,6 +34,7 @@ router.post('/login', (req, res) => {
     email: user.email,
     userId: user.userId,
     fullName: user.fullName,
+    hasPin: hasPin(user.userId),
   });
 });
 
@@ -67,6 +69,7 @@ router.post('/register', (req, res) => {
     phoneNumber: user.phoneNumber,
     userId: user.userId,
     fullName: user.fullName,
+    hasPin: false,
   });
 });
 
@@ -94,6 +97,7 @@ router.post('/login-fingerprint', (req, res) => {
     phoneNumber: user.phoneNumber,
     userId: user.userId,
     fullName: user.fullName,
+    hasPin: hasPin(user.userId),
   });
 });
 
@@ -117,6 +121,125 @@ router.post('/refresh', (req, res) => {
   } catch (error) {
     return res.status(401).json({ code: 'INVALID_TOKEN', message: 'Refresh token is invalid or expired' });
   }
+});
+
+router.post('/pin', authenticate, (req, res) => {
+  const { pin } = req.body;
+  if (!pin || pin.length !== 6 || !/^\d{6}$/.test(pin)) {
+    return res.status(400).json({ code: 'INVALID_PIN', message: 'PIN must be exactly 6 digits.' });
+  }
+  const weakPins = ['000000', '111111', '222222', '333333', '444444', '555555', '666666', '777777', '888888', '999999', '123456', '654321', '123456789'];
+  if (weakPins.includes(pin)) {
+    return res.status(400).json({ code: 'WEAK_PIN', message: 'This PIN is too common. Please choose a different one.' });
+  }
+  createPin(req.user.userId, pin);
+  return res.json({ success: true, hasPin: true });
+});
+
+router.post('/verify-pin', authenticate, (req, res) => {
+  const { pin } = req.body;
+  if (!pin || !/^\d{6}$/.test(pin)) {
+    return res.status(400).json({ code: 'INVALID_PIN', message: 'PIN must be exactly 6 digits.' });
+  }
+  if (!hasPin(req.user.userId)) {
+    return res.status(400).json({ code: 'NO_PIN', message: 'No PIN has been set yet.' });
+  }
+  if (!verifyPin(req.user.userId, pin)) {
+    return res.status(403).json({ code: 'PIN_MISMATCH', message: 'PIN is incorrect.' });
+  }
+  return res.json({ success: true });
+});
+
+/* Verify current password (used in reset flows before allowing changes) */
+router.post('/verify-password', authenticate, (req, res) => {
+  const { currentPassword } = req.body;
+  const userId = req.user.userId;
+
+  if (!currentPassword) {
+    return res.status(400).json({ code: 'INVALID_INPUT', message: 'Current password is required.' });
+  }
+
+  if (isPasswordChangeLocked(userId)) {
+    return res.status(429).json({ code: 'TOO_MANY_ATTEMPTS', message: 'Too many attempts. Please try again later.' });
+  }
+
+  if (!bcrypt.compareSync(currentPassword, req.user.passwordHash)) {
+    recordPasswordChangeAttempt(userId, false);
+    return res.status(403).json({ code: 'INVALID_PASSWORD', message: 'Current password is incorrect.' });
+  }
+
+  recordPasswordChangeAttempt(userId, true);
+  return res.json({ valid: true });
+});
+
+/* Change password – requires authentication */
+router.post('/change-password', authenticate, (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user.userId;
+
+  if (isPasswordChangeLocked(userId)) {
+    return res.status(429).json({ code: 'TOO_MANY_ATTEMPTS', message: 'Too many attempts. Please try again later.' });
+  }
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ code: 'INVALID_INPUT', message: 'Current password and new password are required.' });
+  }
+
+  if (newPassword.length < 8) {
+    return res.status(400).json({ code: 'WEAK_PASSWORD', message: 'New password must be at least 8 characters.' });
+  }
+
+  if (!bcrypt.compareSync(currentPassword, req.user.passwordHash)) {
+    recordPasswordChangeAttempt(userId, false);
+    return res.status(403).json({ code: 'INVALID_PASSWORD', message: 'Current password is incorrect.' });
+  }
+
+  if (bcrypt.compareSync(newPassword, req.user.passwordHash)) {
+    return res.status(400).json({ code: 'SAME_PASSWORD', message: 'New password must be different from the current password.' });
+  }
+
+  updatePassword(userId, newPassword);
+  recordPasswordChangeAttempt(userId, true);
+  revokeAllRefreshTokens(userId);
+
+  return res.json({ success: true, message: 'Password updated successfully.' });
+});
+
+/* Reset Security PIN – requires current password verification */
+router.post('/reset-pin', authenticate, (req, res) => {
+  const { currentPassword, newPin } = req.body;
+  const userId = req.user.userId;
+
+  if (isPinResetLocked(userId)) {
+    return res.status(429).json({ code: 'TOO_MANY_ATTEMPTS', message: 'Too many attempts. Please try again later.' });
+  }
+
+  if (!currentPassword || !newPin) {
+    return res.status(400).json({ code: 'INVALID_INPUT', message: 'Current password and new PIN are required.' });
+  }
+
+  if (!bcrypt.compareSync(currentPassword, req.user.passwordHash)) {
+    recordPinResetAttempt(userId, false);
+    return res.status(403).json({ code: 'INVALID_PASSWORD', message: 'Current password is incorrect.' });
+  }
+
+  if (newPin.length !== 6 || !/^\d{6}$/.test(newPin)) {
+    return res.status(400).json({ code: 'INVALID_PIN', message: 'PIN must be exactly 6 digits.' });
+  }
+
+  const weakPins = ['000000', '111111', '222222', '333333', '444444', '555555', '666666', '777777', '888888', '999999', '123456', '654321', '123456789'];
+  if (weakPins.includes(newPin)) {
+    return res.status(400).json({ code: 'WEAK_PIN', message: 'This PIN is too common. Please choose a different one.' });
+  }
+
+  if (verifyPin(userId, newPin)) {
+    return res.status(400).json({ code: 'SAME_PIN', message: 'New PIN must be different from the current PIN.' });
+  }
+
+  updatePin(userId, newPin);
+  recordPinResetAttempt(userId, true);
+
+  return res.json({ success: true, message: 'PIN updated successfully.' });
 });
 
 router.post('/logout', (req, res) => {

@@ -4,10 +4,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { addOperation, getTransaction } from '../store.js'; 
 import * as paymentController from '../controllers/paymentController.js';
 import { requireKyc } from '../middleware/requireKyc.js';
+import { requireAccountSetup } from '../middleware/requireAccountSetup.js';
 
 const router = express.Router();
 
-router.post('/checkout', requireKyc, (req, res) => {
+router.post('/checkout', requireAccountSetup, (req, res) => {
   const { amountMinor, method, firstName, lastName, email, phoneNumber, currency, walletPhoneNumber } = req.body;
   
   if (!amountMinor || !method || !firstName || !lastName || !email || !phoneNumber) {
@@ -104,7 +105,7 @@ router.get('/transaction-status/:transactionId', (req, res) => {
 });
 
 // 2. مسارات تهيئة وتأكيد الدفع
-router.post('/initiate', requireKyc, paymentController.initiate);
-router.post('/confirm', requireKyc, paymentController.confirm);
+router.post('/initiate', requireAccountSetup, paymentController.initiate);
+router.post('/confirm', requireAccountSetup, paymentController.confirm);
 
 export default router;

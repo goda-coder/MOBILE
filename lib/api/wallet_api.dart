@@ -7,6 +7,15 @@ class WalletApi {
   WalletApi(this._c);
   final ApiClient _c;
 
+  Future<String> validateRecipient(String recipientIdentifier) async {
+    try {
+      final r = await _c.dio.get('/api/v1/wallet/validate-recipient/$recipientIdentifier');
+      return (r.data as Map<String, dynamic>)['fullName'] as String;
+    } on DioException catch (e) {
+      throw ApiClient.toApiError(e);
+    }
+  }
+
   Future<WalletSummary> summary() async {
     try {
       final r = await _c.dio.get('/api/v1/wallet/summary');
@@ -41,6 +50,13 @@ class WalletApi {
         if (description != null) 'description': description,
       });
       return TransferResponse.fromJson(r.data as Map<String, dynamic>);
+    } on DioException catch (e) { throw ApiClient.toApiError(e); }
+  }
+
+  Future<TransferLimitResponse> transferLimits() async {
+    try {
+      final r = await _c.dio.get('/api/v1/wallet/transfer-limits');
+      return TransferLimitResponse.fromJson(r.data as Map<String, dynamic>);
     } on DioException catch (e) { throw ApiClient.toApiError(e); }
   }
 

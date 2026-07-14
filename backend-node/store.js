@@ -1,5 +1,9 @@
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
+import { TRANSFER_LIMITS } from './config.js';
+import { computeLimits, checkTransferLimits as serviceCheck } from './services/transferLimitService.js';
+
+const PIN_SALT_ROUNDS = 10;
 
 const users = new Map();
 const refreshTokens = new Map();
@@ -104,7 +108,22 @@ const getChatConversations = () => {
 };
 
 const transactions = new Map();
-let transferLock = false;
+
+// --- Concurrency lock (promise-chain based, no race window) ---
+let _lockQueue = Promise.resolve();
+
+const _withLock = async (fn) => {
+  let release;
+  const wait = new Promise((resolve) => { release = resolve; });
+  const prev = _lockQueue;
+  _lockQueue = _lockQueue.then(() => wait);
+  await prev;
+  try {
+    return await fn();
+  } finally {
+    release();
+  }
+};
 
 const createTransaction = ({ merchantId, targetUserId, amount }) => {
   const id = uuidv4();
@@ -123,10 +142,181 @@ const updateTransactionStatus = (id, status) => {
   return tx;
 };
 
-const atomicTransfer = (fromUserId, toUserId, amountMinor) => {
-  if (transferLock) throw new Error('Concurrent transfer detected');
-  transferLock = true;
-  try {
+// -- Transfer limits (data storage only; logic in config.js + services/transferLimitService.js) --
+
+const transferLimits = new Map(); // Map<userId, {dailyUsed, monthlyUsed, dailyResetAt, monthlyResetAt}>
+
+const _getTodayReset = () => {
+  const now = new Date();
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  tomorrow.setHours(0, 0, 0, 0);
+  return tomorrow.toISOString();
+};
+
+/**
+ * Returns a new Date exactly one calendar month after `date`, clamping
+ * the day to the last day of the target month when necessary (e.g.
+ * Jan 31 -> Feb 28/29, March 31 -> April 30).
+ */
+const _addCalendarMonth = (date) => {
+  const year = date.getFullYear();
+  const month = date.getMonth(); // 0-indexed
+  const day = date.getDate();
+
+  // Target month
+  let targetMonth = month + 1;
+  let targetYear = year;
+  if (targetMonth > 11) {
+    targetMonth = 0;
+    targetYear += 1;
+  }
+
+  // Clamp day to the last day of the target month
+  const lastDay = new Date(targetYear, targetMonth + 1, 0).getDate();
+  const clampedDay = Math.min(day, lastDay);
+
+  const result = new Date(targetYear, targetMonth, clampedDay);
+  result.setHours(0, 0, 0, 0);
+  return result;
+};
+
+const _ensureLimitsRecord = (userId) => {
+  if (!transferLimits.has(userId)) {
+    const now = new Date();
+    transferLimits.set(userId, {
+      dailyUsed: 0,
+      monthlyUsed: 0,
+      dailyResetAt: _getTodayReset(),
+      monthlyCycleStart: now.toISOString(),
+      monthlyResetAt: _addCalendarMonth(now).toISOString(),
+    });
+  }
+  const rec = transferLimits.get(userId);
+  const nowMs = Date.now();
+  if (new Date(rec.dailyResetAt).getTime() <= nowMs) {
+    rec.dailyUsed = 0;
+    rec.dailyResetAt = _getTodayReset();
+  }
+  if (new Date(rec.monthlyResetAt).getTime() <= nowMs) {
+    rec.monthlyUsed = 0;
+    const cycleStart = new Date();
+    rec.monthlyCycleStart = cycleStart.toISOString();
+    rec.monthlyResetAt = _addCalendarMonth(cycleStart).toISOString();
+  }
+  return rec;
+};
+
+const getTransferLimits = (userId) => {
+  const rec = _ensureLimitsRecord(userId);
+  return computeLimits(rec);
+};
+
+const checkTransferLimits = (userId, amountMinor) => {
+  const rec = _ensureLimitsRecord(userId);
+  return serviceCheck(rec, amountMinor);
+};
+
+const recordTransfer = (userId, amountMinor) => {
+  const rec = _ensureLimitsRecord(userId);
+  rec.dailyUsed += amountMinor;
+  rec.monthlyUsed += amountMinor;
+};
+
+// -- Password change & brute-force protection ------------------------
+const passwordChangeAttempts = new Map();
+const pinResetAttempts = new Map();
+
+const MAX_PASSWORD_CHANGE_ATTEMPTS = 5;
+const PASSWORD_CHANGE_LOCKOUT_MIN = 15;
+const MAX_PIN_RESET_ATTEMPTS = 5;
+const PIN_RESET_LOCKOUT_MIN = 15;
+
+function _isLocked(attemptsMap, userId, maxAttempts, lockoutMin) {
+  const record = attemptsMap.get(userId);
+  if (!record) return false;
+  if (record.lockedUntil && Date.now() < record.lockedUntil) return true;
+  if (record.lockedUntil && Date.now() >= record.lockedUntil) {
+    attemptsMap.delete(userId);
+    return false;
+  }
+  return false;
+}
+
+function _recordAttempt(attemptsMap, userId, success, maxAttempts, lockoutMin) {
+  if (success) {
+    attemptsMap.delete(userId);
+    return;
+  }
+  const record = attemptsMap.get(userId) || { count: 0, lockedUntil: null };
+  record.count += 1;
+  if (record.count >= maxAttempts) {
+    record.lockedUntil = Date.now() + lockoutMin * 60 * 1000;
+  }
+  attemptsMap.set(userId, record);
+}
+
+const isPasswordChangeLocked = (userId) =>
+  _isLocked(passwordChangeAttempts, userId, MAX_PASSWORD_CHANGE_ATTEMPTS, PASSWORD_CHANGE_LOCKOUT_MIN);
+
+const recordPasswordChangeAttempt = (userId, success) =>
+  _recordAttempt(passwordChangeAttempts, userId, success, MAX_PASSWORD_CHANGE_ATTEMPTS, PASSWORD_CHANGE_LOCKOUT_MIN);
+
+const isPinResetLocked = (userId) =>
+  _isLocked(pinResetAttempts, userId, MAX_PIN_RESET_ATTEMPTS, PIN_RESET_LOCKOUT_MIN);
+
+const recordPinResetAttempt = (userId, success) =>
+  _recordAttempt(pinResetAttempts, userId, success, MAX_PIN_RESET_ATTEMPTS, PIN_RESET_LOCKOUT_MIN);
+
+const updatePassword = (userId, newPassword) => {
+  const user = users.get(userId);
+  if (!user) return false;
+  user.passwordHash = bcrypt.hashSync(newPassword, 10);
+  return true;
+};
+
+const updatePin = (userId, newPin) => {
+  const user = users.get(userId);
+  if (!user) return false;
+  const hash = bcrypt.hashSync(newPin, PIN_SALT_ROUNDS);
+  pinHashes.set(userId, hash);
+  user.pinHash = hash;
+  return true;
+};
+
+const revokeAllRefreshTokens = (userId) => {
+  for (const [token, uid] of refreshTokens.entries()) {
+    if (uid === userId) refreshTokens.delete(token);
+  }
+};
+
+// -- PIN management ------------------------------------------------
+const pinHashes = new Map();
+
+const _getPinHash = (userId) => {
+  const fromMap = pinHashes.get(userId);
+  if (fromMap) return fromMap;
+  const user = users.get(userId);
+  return user?.pinHash || null;
+};
+
+const createPin = (userId, pin) => {
+  const hash = bcrypt.hashSync(pin, PIN_SALT_ROUNDS);
+  pinHashes.set(userId, hash);
+  const user = users.get(userId);
+  if (user) user.pinHash = hash;
+  return true;
+};
+
+const verifyPin = (userId, pin) => {
+  const hash = _getPinHash(userId);
+  if (!hash) return false;
+  return bcrypt.compareSync(pin, hash);
+};
+
+const hasPin = (userId) => _getPinHash(userId) !== null;
+
+const atomicTransfer = async (fromUserId, toUserId, amountMinor) => {
+  return _withLock(() => {
     const fromWallet = wallets.get(fromUserId);
     const toWallet = wallets.get(toUserId);
     if (!fromWallet || !toWallet) throw new Error('Wallet not found');
@@ -134,9 +324,7 @@ const atomicTransfer = (fromUserId, toUserId, amountMinor) => {
     fromWallet.balanceMinor -= amountMinor;
     toWallet.balanceMinor += amountMinor;
     return { fromWallet, toWallet };
-  } finally {
-    transferLock = false;
-  }
+  });
 };
 
 const attachFingerprintToUser = (fingerprintId, userId, deviceModel = 'ZK9500') => {
@@ -166,6 +354,11 @@ const seedUsers = [
 ];
 for (const user of seedUsers) {
   if (!findUserByEmail(user.email)) createUser(user);
+}
+
+// Rebuild pinHashes from any users that have a pinHash (survives restart)
+for (const user of users.values()) {
+  if (user.pinHash) pinHashes.set(user.userId, user.pinHash);
 }
 
 const createKycRequest = ({ userId, fullName, phoneNumber, documentType, status, matchPercentage, warnings, idFrontPath, idBackPath, selfiePath }) => {
@@ -218,6 +411,9 @@ const updateKycRequest = (id, updates) => {
 };
 
 export {
+  getTransferLimits,
+  checkTransferLimits,
+  recordTransfer,
   createUser,
   findUserByEmail,
   findUserByPhone,
@@ -227,6 +423,7 @@ export {
   addRefreshToken,
   getUserIdByRefreshToken,
   revokeRefreshToken,
+  revokeAllRefreshTokens,
   getWallet,
   addOperation,
   getWalletTransactions,
@@ -247,4 +444,13 @@ export {
   getTransaction,
   updateTransactionStatus,
   atomicTransfer,
+  createPin,
+  verifyPin,
+  hasPin,
+  updatePassword,
+  updatePin,
+  isPasswordChangeLocked,
+  recordPasswordChangeAttempt,
+  isPinResetLocked,
+  recordPinResetAttempt,
 };

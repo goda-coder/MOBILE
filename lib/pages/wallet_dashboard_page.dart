@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import '../theme/colors.dart';
 import '../utils/format.dart';
 import '../widgets/app_button.dart';
+import '../widgets/onboarding_progress.dart';
 import '../widgets/status_pill.dart';
 
 final _summaryProvider = FutureProvider.autoDispose(
@@ -17,14 +18,42 @@ final _txProvider = FutureProvider.autoDispose(
   (ref) => ref.read(walletApiProvider).transactions(skip: 0, take: 8),
 );
 
-class WalletDashboardPage extends ConsumerWidget {
+class WalletDashboardPage extends ConsumerStatefulWidget {
   const WalletDashboardPage({super.key});
+  @override
+  ConsumerState<WalletDashboardPage> createState() =>
+      _WalletDashboardPageState();
+}
+
+class _WalletDashboardPageState extends ConsumerState<WalletDashboardPage> {
+  void _syncKyc(bool verified) {
+    if (!verified) return;
+    final currentAuth = ref.read(authControllerProvider).value;
+    if (currentAuth != null && !currentAuth.isKycVerified) {
+      ref.read(authControllerProvider.notifier).updateKycStatus(true);
+    }
+  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final summary = ref.watch(_summaryProvider);
     final txs = ref.watch(_txProvider);
     final auth = ref.watch(authControllerProvider).value;
+    final setupComplete = auth?.isAccountReadyForFeatures ?? false;
+
+    // Sync KYC status from wallet summary / kycStatusProvider into AuthState
+    // so that isAccountReadyForFeatures stays in sync with the backend.
+    ref.listen(_summaryProvider, (prev, next) {
+      next.whenOrNull(
+        data: (s) => _syncKyc(s.isKycVerified),
+      );
+    });
+    // Fallback sync from the KYC status endpoint
+    ref.listen(kycStatusProvider, (prev, next) {
+      next.whenOrNull(
+        data: (status) => _syncKyc(status == 'Verified'),
+      );
+    });
 
     return SafeArea(
       child: RefreshIndicator(
@@ -55,49 +84,60 @@ class WalletDashboardPage extends ConsumerWidget {
                     ],
                   ),
                 ),
-                if (summary.hasValue)
-                  StatusPill(summary.value!.kycStatus,
-                      tone: kycTone(summary.value!.kycStatus)),
               ],
             ),
-            // ---- Bento row ----
-
             const SizedBox(height: 20),
-            summary.when(
-              data: (s) => _BentoRow(summary: s),
-              loading: () => const _BalanceSkeleton(),
-              error: (e, _) => ErrorCard(
-                  title: 'Could not load balance', message: e.toString()),
-            ),
-            const SizedBox(height: 12),
 
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Recent activity',
-                        style: TextStyle(
-                            fontSize: 17, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 12),
-                    txs.when(
-                      data: (list) => list.isEmpty
-                          ? const _Empty(
-                              text:
-                                  'No transactions yet. Send or top up to get started.')
-                          : _TxList(txs: list),
-                      loading: () => const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: Center(
-                            child: CircularProgressIndicator(strokeWidth: 2)),
+            // ===== Onboarding Progress (shown when setup incomplete) =====
+            if (!setupComplete) ...[
+              const OnboardingProgress(),
+              const SizedBox(height: 16),
+            ],
+
+            // ===== Verified status card (shown when setup is complete) =====
+            if (setupComplete && auth?.role != Role.admin) ...[
+              _VerifiedAccountCard(),
+              const SizedBox(height: 16),
+            ],
+
+            // ===== Balance + actions =====
+            if (setupComplete)
+              summary.when(
+                data: (s) => BalanceCard(summary: s),
+                loading: () => const _BalanceSkeleton(),
+                error: (e, _) => ErrorCard(
+                    title: 'Could not load balance', message: e.toString()),
+              ),
+            const SizedBox(height: 12),
+            // ===== Recent activity (only when setup complete) =====
+            if (setupComplete)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Recent activity',
+                          style: TextStyle(
+                              fontSize: 17, fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 12),
+                      txs.when(
+                        data: (list) => list.isEmpty
+                            ? const _Empty(
+                                text:
+                                    'No transactions yet. Send or top up to get started.')
+                            : _TxList(txs: list),
+                        loading: () => const Padding(
+                          padding: EdgeInsets.all(12),
+                          child: Center(
+                              child: CircularProgressIndicator(strokeWidth: 2)),
+                        ),
+                        error: (e, _) => ErrorCard(message: e.toString()),
                       ),
-                      error: (e, _) => ErrorCard(message: e.toString()),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -105,73 +145,53 @@ class WalletDashboardPage extends ConsumerWidget {
   }
 }
 
-class _BentoRow extends StatelessWidget {
-  const _BentoRow({required this.summary});
-  final WalletSummary summary;
-
+// ===== Verified Account Card (shown when setup is complete) =====
+class _VerifiedAccountCard extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
-    return Column(spacing: 12.0, children: [
-      // Identity tile
-      Card(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authControllerProvider).value;
+    final ready = auth?.isAccountReadyForFeatures ?? false;
+    return Card(
+      child: InkWell(
+        onTap: () => context.push('/account-setup'),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(18),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: summary.isKycVerified
-                      ? AppColors.success.withValues(alpha: 0.15)
-                      : AppColors.warning.withValues(alpha: 0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  summary.isKycVerified
-                      ? Icons.verified
-                      : Icons.shield_outlined,
-                  color: summary.isKycVerified
-                      ? AppColors.success
-                      : AppColors.warning,
-                ),
+          child: Row(children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: AppColors.success.withValues(alpha: 0.15),
+                shape: BoxShape.circle,
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                        summary.isKycVerified
-                            ? 'Verified'
-                            : 'Identity not verified',
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 2),
-                    Text(
-                      summary.isKycVerified
-                          ? 'Full features unlocked.'
-                          : 'Verify to unlock higher limits.',
-                      style: const TextStyle(
-                          color: AppColors.ink400, fontSize: 13),
-                    ),
-                  ],
-                ),
+              child: const Icon(Icons.verified,
+                  color: AppColors.success, size: 24),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Account Verified',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text(
+                    ready
+                        ? 'Your account is fully verified. You now have access to all wallet features.'
+                        : 'Complete the remaining steps to unlock all features.',
+                    style:
+                        const TextStyle(color: AppColors.ink400, fontSize: 13),
+                  ),
+                ],
               ),
-              AppButton(
-                label: summary.isKycVerified ? 'View' : 'Verify',
-                variant: summary.isKycVerified
-                    ? AppButtonVariant.ghost
-                    : AppButtonVariant.primary,
-                onPressed: () => context.push('/kyc'),
-              ),
-            ],
-          ),
+            ),
+            const Icon(Icons.chevron_right, color: AppColors.ink400),
+          ]),
         ),
       ),
-      // Big balance tile
-      BalanceCard(summary: summary),
-    ]);
+    );
   }
 }
 

@@ -26,7 +26,7 @@ final String _defaultBaseUrl = _envBaseUrl.isNotEmpty
     ? _envBaseUrl
     : (kIsWeb
         ? '${Uri.base.scheme == 'https' ? 'https' : 'http'}://${Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost'}:8081'
-        : 'https://backend-node-woad.vercel.app');
+        : 'http://10.0.2.2:8081');
 
 final apiBaseUrlProvider = Provider<String>((_) => _defaultBaseUrl);
 
@@ -46,7 +46,7 @@ final secureStorageProvider = Provider<FlutterSecureStorage>(
 );
 
 final tokenStoreProvider = Provider<TokenStore>(
-  (ref) => TokenStore(ref.read(secureStorageProvider)),
+  (_) => TokenStore(),
 );
 
 final apiClientProvider = Provider<ApiClient>(
@@ -71,26 +71,33 @@ final adminApiProvider =
 
 // -- Auth state ------------------------------------------------------
 class AuthState {
-  AuthState(
-      {this.accessToken,
-      this.refreshToken,
-      this.role,
-      this.phoneNumber,
-      this.userId,
-      this.fullName});
+  AuthState({
+    this.accessToken,
+    this.refreshToken,
+    this.role,
+    this.phoneNumber,
+    this.userId,
+    this.fullName,
+    this.hasPin = false,
+    this.isKycVerified = false,
+  });
   final String? accessToken;
   final String? refreshToken;
   final Role? role;
   final String? phoneNumber;
   final String? userId;
   final String? fullName;
+  final bool hasPin;
+  final bool isKycVerified;
   bool get isAuthenticated => accessToken != null && accessToken!.isNotEmpty;
+  bool get isAccountSetupComplete => hasPin && isKycVerified;
+  bool get isAdmin => role == Role.admin;
+  bool get isAccountReadyForFeatures => isAdmin || isAccountSetupComplete;
 }
 
 class AuthController extends AsyncNotifier<AuthState> {
   @override
   Future<AuthState> build() async {
-    await ref.read(tokenStoreProvider).clear();
     return AuthState();
   }
 
@@ -112,6 +119,8 @@ class AuthController extends AsyncNotifier<AuthState> {
             phoneNumber: r.phoneNumber,
             userId: r.userId,
             fullName: name,
+            hasPin: r.hasPin,
+            isKycVerified: r.isKycVerified,
           );
       state = AsyncData(AuthState(
         accessToken: r.accessToken,
@@ -120,6 +129,8 @@ class AuthController extends AsyncNotifier<AuthState> {
         phoneNumber: r.phoneNumber,
         userId: r.userId,
         fullName: name,
+        hasPin: r.hasPin,
+        isKycVerified: r.isKycVerified,
       ));
     } catch (e, st) {
       state = AsyncError(e, st);
@@ -148,6 +159,8 @@ class AuthController extends AsyncNotifier<AuthState> {
             phoneNumber: r.phoneNumber,
             userId: r.userId,
             fullName: name,
+            hasPin: r.hasPin,
+            isKycVerified: r.isKycVerified,
           );
       state = AsyncData(AuthState(
         accessToken: r.accessToken,
@@ -156,6 +169,8 @@ class AuthController extends AsyncNotifier<AuthState> {
         phoneNumber: r.phoneNumber,
         userId: r.userId,
         fullName: name,
+        hasPin: r.hasPin,
+        isKycVerified: r.isKycVerified,
       ));
     } catch (e, st) {
       state = AsyncError(e, st);
@@ -187,6 +202,8 @@ class AuthController extends AsyncNotifier<AuthState> {
             phoneNumber: r.phoneNumber,
             userId: r.userId,
             fullName: name,
+            hasPin: false,
+            isKycVerified: false,
           );
       state = AsyncData(AuthState(
         accessToken: r.accessToken,
@@ -195,6 +212,8 @@ class AuthController extends AsyncNotifier<AuthState> {
         phoneNumber: r.phoneNumber,
         userId: r.userId,
         fullName: name,
+        hasPin: false,
+        isKycVerified: false,
       ));
     } catch (e, st) {
       state = AsyncError(e, st);
@@ -218,6 +237,49 @@ class AuthController extends AsyncNotifier<AuthState> {
     }
     await tok.clear();
     state = AsyncData(AuthState());
+  }
+
+  /// Mark the PIN as created in local state (after successful PIN creation).
+  Future<void> setPinCreated() async {
+    await ref.read(tokenStoreProvider).setHasPin(true);
+    final current = state.value;
+    if (current != null) {
+      state = AsyncData(AuthState(
+        accessToken: current.accessToken,
+        refreshToken: current.refreshToken,
+        role: current.role,
+        phoneNumber: current.phoneNumber,
+        userId: current.userId,
+        fullName: current.fullName,
+        hasPin: true,
+        isKycVerified: current.isKycVerified,
+      ));
+    }
+  }
+
+  /// Clear the current session entirely (used after password change).
+  Future<void> clearSession() async {
+    final tok = ref.read(tokenStoreProvider);
+    await tok.clear();
+    state = AsyncData(AuthState());
+  }
+
+  /// Update KYC verified status in local state (after summary fetch).
+  Future<void> updateKycStatus(bool verified) async {
+    await ref.read(tokenStoreProvider).setKycVerified(verified);
+    final current = state.value;
+    if (current != null) {
+      state = AsyncData(AuthState(
+        accessToken: current.accessToken,
+        refreshToken: current.refreshToken,
+        role: current.role,
+        phoneNumber: current.phoneNumber,
+        userId: current.userId,
+        fullName: current.fullName,
+        hasPin: current.hasPin,
+        isKycVerified: verified,
+      ));
+    }
   }
 }
 
@@ -369,6 +431,15 @@ final biometricControllerProvider =
   BiometricController.new,
 );
 
+// -- Transfer Limits --------------------------------------------------
+final transferLimitsProvider = FutureProvider.autoDispose<TransferLimitResponse?>((ref) async {
+  try {
+    return await ref.read(walletApiProvider).transferLimits();
+  } catch (_) {
+    return null;
+  }
+});
+
 // -- KYC Protection --------------------------------------------------
 /// Returns true if KYC is verified, false otherwise
 final isKycVerifiedProvider = FutureProvider.autoDispose((ref) async {
@@ -380,11 +451,12 @@ final isKycVerifiedProvider = FutureProvider.autoDispose((ref) async {
   }
 });
 
-/// Get user's KYC status
+/// Get user's KYC status (uses un-guarded /api/v1/kyc/status endpoint
+/// so it works even before account setup is complete).
 final kycStatusProvider = FutureProvider.autoDispose((ref) async {
   try {
-    final summary = await ref.watch(walletApiProvider).summary();
-    return summary.kycStatus;
+    final result = await ref.read(kycApiProvider).myStatus();
+    return result.status;
   } catch (_) {
     return 'None';
   }
@@ -462,7 +534,6 @@ class _BiometricSystemNotifier extends Notifier<BiometricSystemState> {
 }
 
 // -- Biometric Payment (Merchant) --------------------------------------
-
 class BiometricPaymentState {
   const BiometricPaymentState({
     this.isConnected = false,

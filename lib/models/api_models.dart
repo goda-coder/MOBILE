@@ -16,6 +16,8 @@ class LoginResponse {
     required this.phoneNumber,
     required this.userId,
     this.fullName = '',
+    this.hasPin = false,
+    this.isKycVerified = false,
   });
   final String accessToken;
   final String refreshToken;
@@ -23,6 +25,8 @@ class LoginResponse {
   final String phoneNumber;
   final String userId;
   final String fullName;
+  final bool hasPin;
+  final bool isKycVerified;
 
   factory LoginResponse.fromJson(Map<String, dynamic> j) => LoginResponse(
         accessToken: j['accessToken'] as String,
@@ -31,6 +35,8 @@ class LoginResponse {
         phoneNumber: (j['phoneNumber'] ?? '').toString(),
         userId: (j['userId'] ?? '').toString(),
         fullName: (j['fullName'] ?? '').toString(),
+        hasPin: (j['hasPin'] ?? false) as bool,
+        isKycVerified: (j['isKycVerified'] ?? false) as bool,
       );
 }
 
@@ -365,6 +371,42 @@ class PendingKycSummary {
         idFrontUrl: j['idFrontUrl'] as String?,
         idBackUrl: j['idBackUrl'] as String?,
         selfieUrl: j['selfieUrl'] as String?,
+      );
+}
+
+// Transfer Limits ------------------------------------------------------
+
+class TransferLimitResponse {
+  TransferLimitResponse({
+    required this.dailyLimit,
+    required this.dailyUsed,
+    required this.dailyRemaining,
+    required this.dailyResetAt,
+    required this.monthlyLimit,
+    required this.monthlyUsed,
+    required this.monthlyRemaining,
+    required this.monthlyResetAt,
+  });
+
+  final int dailyLimit;
+  final int dailyUsed;
+  final int dailyRemaining;
+  final String dailyResetAt;
+  final int monthlyLimit;
+  final int monthlyUsed;
+  final int monthlyRemaining;
+  final String monthlyResetAt;
+
+  factory TransferLimitResponse.fromJson(Map<String, dynamic> j) =>
+      TransferLimitResponse(
+        dailyLimit: (j['dailyLimit'] ?? 0) as int,
+        dailyUsed: (j['dailyUsed'] ?? 0) as int,
+        dailyRemaining: (j['dailyRemaining'] ?? 0) as int,
+        dailyResetAt: (j['dailyResetAt'] ?? '').toString(),
+        monthlyLimit: (j['monthlyLimit'] ?? 0) as int,
+        monthlyUsed: (j['monthlyUsed'] ?? 0) as int,
+        monthlyRemaining: (j['monthlyRemaining'] ?? 0) as int,
+        monthlyResetAt: (j['monthlyResetAt'] ?? '').toString(),
       );
 }
 

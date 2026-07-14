@@ -79,10 +79,54 @@ class AuthApi {
     }
   }
 
+  Future<void> createPin(String pin) async {
+    try {
+      await _c.dio.post('/api/v1/auth/pin', data: {'pin': pin});
+    } on DioException catch (e) {
+      throw ApiClient.toApiError(e);
+    }
+  }
+
+  Future<void> verifyPin(String pin) async {
+    try {
+      await _c.dio.post('/api/v1/auth/verify-pin', data: {'pin': pin});
+    } on DioException catch (e) {
+      throw ApiClient.toApiError(e);
+    }
+  }
+
   Future<ProfileResponse> profile() async {
     try {
       final r = await _c.dio.get('/api/v1/profile');
       return ProfileResponse.fromJson(r.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      throw ApiClient.toApiError(e);
+    }
+  }
+
+  Future<void> verifyPassword(String currentPassword) async {
+    try {
+      await _c.dio.post('/api/v1/auth/verify-password',
+          data: {'currentPassword': currentPassword});
+    } on DioException catch (e) {
+      throw ApiClient.toApiError(e);
+    }
+  }
+
+  Future<void> changePassword(
+      String currentPassword, String newPassword) async {
+    try {
+      await _c.dio.post('/api/v1/auth/change-password',
+          data: {'currentPassword': currentPassword, 'newPassword': newPassword});
+    } on DioException catch (e) {
+      throw ApiClient.toApiError(e);
+    }
+  }
+
+  Future<void> resetPin(String currentPassword, String newPin) async {
+    try {
+      await _c.dio.post('/api/v1/auth/reset-pin',
+          data: {'currentPassword': currentPassword, 'newPin': newPin});
     } on DioException catch (e) {
       throw ApiClient.toApiError(e);
     }

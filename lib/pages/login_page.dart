@@ -53,7 +53,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       await ref
           .read(authControllerProvider.notifier)
           .signIn(_phone.text.trim(), _password.text);
-      if (mounted) context.go('/');
+      if (mounted) {
+        final auth = ref.read(authControllerProvider).value;
+        if (auth?.isAdmin == true) {
+          context.go('/');
+        } else if (auth?.hasPin == true) {
+          context.go('/login-pin');
+        } else {
+          context.go('/');
+        }
+      }
     } on ApiError catch (e) {
       setState(() => _error = e.message);
     } catch (e) {
@@ -145,7 +154,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                               final success = await ref
                                   .read(biometricControllerProvider.notifier)
                                   .authenticateAndSignIn();
-                              if (success && mounted) context.go('/');
+                              if (success && mounted) {
+                                final auth = ref.read(authControllerProvider).value;
+                                if (auth?.isAdmin == true) {
+                                  context.go('/');
+                                } else if (auth?.hasPin == true) {
+                                  context.go('/login-pin');
+                                } else {
+                                  context.go('/');
+                                }
+                              }
                             },
                       expand: true,
                     );

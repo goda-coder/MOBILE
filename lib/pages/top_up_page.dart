@@ -7,6 +7,7 @@ import 'package:wallet/widgets/inline_alert.dart';
 import 'package:wallet/widgets/status_pill.dart';
 
 import '../api/api_client.dart';
+import '../services/auth_guards.dart';
 import '../state/providers.dart';
 import '../theme/app_theme.dart';
 import '../utils/format.dart';
@@ -88,6 +89,7 @@ class _TopUpPageState extends ConsumerState<TopUpPage>
   }
 
   Future<void> _submit() async {
+    if (!await AuthGuards.requireWalletAccess(context, ref)) return;
     setState(() => _error = null);
     final minor = parseMinor(_amount.text);
     if (minor == null || minor <= 0) {

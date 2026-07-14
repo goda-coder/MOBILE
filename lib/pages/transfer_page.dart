@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wallet/widgets/inline_alert.dart';
 
+import '../api/api_client.dart';
 import '../theme/app_theme.dart';
 import '../theme/colors.dart';
 import '../utils/format.dart';
@@ -10,7 +11,9 @@ import '../widgets/app_button.dart';
 import '../widgets/app_input.dart';
 import '../widgets/status_pill.dart';
 import '../models/transfer_data.dart';
-import '../services/kyc_guard.dart';
+import '../services/auth_guards.dart';
+import '../state/providers.dart';
+import '../utils/self_transfer.dart';
 
 class TransferPage extends ConsumerStatefulWidget {
   const TransferPage({super.key});
@@ -23,7 +26,7 @@ class _TransferPageState extends ConsumerState<TransferPage> {
   final _amount = TextEditingController();
   final _desc = TextEditingController();
   String? _error;
-  final bool _busy = false;
+  bool _busy = false;
 
   @override
   void dispose() {
@@ -36,7 +39,13 @@ class _TransferPageState extends ConsumerState<TransferPage> {
   Future<void> _submit() async {
     setState(() => _error = null);
 
-    if (!await KycGuard.ensureVerified(context, ref)) return;
+    if (!await AuthGuards.requireWalletAccess(context, ref)) return;
+
+    final recipient = _recipient.text.trim();
+    if (recipient.isEmpty) {
+      setState(() => _error = 'Please enter a recipient.');
+      return;
+    }
 
     final minor = parseMinor(_amount.text);
     if (minor == null || minor <= 0) {
@@ -44,17 +53,126 @@ class _TransferPageState extends ConsumerState<TransferPage> {
       return;
     }
 
-    final idempotencyRef =
-        'tr-${DateTime.now().microsecondsSinceEpoch}-${UniqueKey().hashCode}';
-    final data = TransferData(
-      recipient: _recipient.text.trim(),
-      amountMinor: minor,
-      amountFormatted: formatMoney(minor),
-      description: _desc.text.trim().isEmpty ? null : _desc.text.trim(),
-      idempotencyRef: idempotencyRef,
-    );
+    final auth = ref.read(authControllerProvider).value;
+    if (isSelfTransfer(recipient,
+        userId: auth?.userId, phoneNumber: auth?.phoneNumber)) {
+      setState(() => _error = 'You cannot transfer to your own account.');
+      return;
+    }
 
-    if (mounted) context.push('/fraud-detection', extra: data);
+    setState(() => _busy = true);
+    try {
+      // 1 & 2. Verify Recipient and KYC status
+      try {
+        await ref.read(walletApiProvider).validateRecipient(recipient);
+      } on ApiError catch (e) {
+        if (e.code == 'RECIPIENT_NOT_FOUND') {
+          setState(() => _error = 'Recipient account not found.');
+        } else if (e.code == 'RECIPIENT_KYC_NOT_VERIFIED') {
+          setState(() => _error = 'Recipient KYC not verified.');
+        } else {
+          setState(() => _error = e.message);
+        }
+        return;
+      }
+
+      // 3. Verify Sender Balance
+      final summary = await ref.read(walletApiProvider).summary();
+      if (summary.balanceMinor < minor) {
+        setState(() => _error = 'Insufficient balance.');
+        return;
+      }
+
+      // 4. Verify Transfer Limits
+      final limits = await ref.read(walletApiProvider).transferLimits();
+      if (limits.dailyRemaining == 0) {
+        _showLimitDialog(
+          title: 'Daily Limit Reached',
+          message:
+              'You have reached your daily transfer limit. Your daily limit will reset on ${_formatReset(limits.dailyResetAt)}.',
+        );
+        return;
+      }
+      if (limits.monthlyRemaining == 0) {
+        _showLimitDialog(
+          title: 'Monthly Limit Reached',
+          message:
+              'You have reached your monthly transfer limit. Your monthly limit will reset on ${_formatReset(limits.monthlyResetAt)}.',
+        );
+        return;
+      }
+      if (minor > limits.dailyRemaining) {
+        _showLimitDialog(
+          title: 'Daily Limit',
+          message:
+              'The entered amount exceeds your remaining daily transfer limit. You can only send up to ${formatAmount(limits.dailyRemaining)} today.',
+        );
+        return;
+      }
+      if (minor > limits.monthlyRemaining) {
+        _showLimitDialog(
+          title: 'Monthly Limit',
+          message:
+              'The entered amount exceeds your remaining monthly transfer limit. You can only send up to ${formatAmount(limits.monthlyRemaining)} this month.',
+        );
+        return;
+      }
+
+      final idempotencyRef =
+          'tr-${DateTime.now().microsecondsSinceEpoch}-${UniqueKey().hashCode}';
+      final data = TransferData(
+        recipient: recipient,
+        amountMinor: minor,
+        amountFormatted: formatMoney(minor),
+        description: _desc.text.trim().isEmpty ? null : _desc.text.trim(),
+        idempotencyRef: idempotencyRef,
+      );
+
+      if (mounted) context.push('/transfer-confirmation', extra: data);
+    } on ApiError catch (e) {
+      setState(() => _error = e.message);
+    } catch (e) {
+      setState(() => _error = 'Could not process validation: ${e.toString()}');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _showLimitDialog({required String title, required String message}) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          const Icon(Icons.warning_amber_rounded,
+              color: AppColors.warning, size: 22),
+          const SizedBox(width: 10),
+          Flexible(child: Text(title)),
+        ]),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatReset(String iso) {
+    final dt = DateTime.tryParse(iso);
+    if (dt == null) return '';
+    final now = DateTime.now();
+    final diff = dt.difference(now);
+    if (diff.inHours < 24) {
+      return 'Tomorrow at 12:00 AM';
+    }
+    final months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+    return '${dt.day} ${months[dt.month - 1]}';
   }
 
   @override

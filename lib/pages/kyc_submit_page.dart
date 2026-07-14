@@ -69,6 +69,11 @@ class _KycSubmitPageState extends ConsumerState<KycSubmitPage> {
             idBack: _isPassport ? null : _idBack,
             selfie: _selfie!,
           );
+      if (r.status == 'AutoVerified') {
+        await ref
+            .read(authControllerProvider.notifier)
+            .updateKycStatus(true);
+      }
       setState(() {
         _resultStatus = r.status;
         _resultMatch = r.matchPercentage;

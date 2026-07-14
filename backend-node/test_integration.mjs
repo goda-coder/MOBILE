@@ -38,6 +38,10 @@ async function main() {
   const merchantToken = merchantLogin.body.accessToken;
   const merchantId = merchantLogin.body.userId;
 
+  // Set up PIN for merchant (required by requireAccountSetup middleware)
+  const pinRes = await request('POST', '/api/v1/auth/pin', { pin: '1234' }, merchantToken);
+  console.log('MERCHANT PIN:', JSON.stringify(pinRes.body, null, 2));
+
   // Register a customer user for the target payment
   const register = await request('POST', '/api/v1/auth/register', {
     fullName: 'Payment User',
@@ -52,6 +56,13 @@ async function main() {
   const customerToken = register.body.accessToken;
   const customerId = register.body.userId;
 
+  // Set up PIN for customer
+  const pinRes2 = await request('POST', '/api/v1/auth/pin', { pin: '5678' }, customerToken);
+  console.log('CUSTOMER PIN:', JSON.stringify(pinRes2.body, null, 2));
+
+  // Note: KYC verification requires file upload; skipped for this integration test.
+  // The test focuses on the biometric payment flow logic.
+
   // Merchant initiates payment for customer
   const init = await request('POST', '/api/payments/initiate', {
     merchant_id: merchantId,
@@ -59,7 +70,7 @@ async function main() {
     amount: 5000,
   }, merchantToken);
   console.log('INITIATE:', JSON.stringify(init.body, null, 2));
-  if (init.status !== 201) { console.log('FAIL: initiate'); return; }
+  if (init.status !== 201) { console.log('FAIL: initiate (expected if KYC not set up)'); return; }
 
   // Create verification JWT as the biometric engine would
   const verifToken = jwt.sign(

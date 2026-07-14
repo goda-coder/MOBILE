@@ -34,29 +34,43 @@ class ReportPage extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Wallet summary', style: TextStyle(fontWeight: FontWeight.w600)),
+                        const Text('Wallet summary',
+                            style: TextStyle(fontWeight: FontWeight.w600)),
                         const SizedBox(height: 12),
                         _ReportRow('Wallet ID', data.wallet.walletId),
-                        _ReportRow('Balance', formatAmount(data.wallet.balanceMinor) + ' ' + data.wallet.currency),
+                        _ReportRow('Balance',
+                            '${formatAmount(data.wallet.balanceMinor)} ${data.wallet.currency}'),
                         _ReportRow('KYC status', data.wallet.kycStatus),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text('Recent account operations', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                const Text('Recent account operations',
+                    style:
+                        TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 12),
                 ...data.operations.map((op) => Card(
+                      margin: const EdgeInsets.only(bottom: 13.0),
                       child: ListTile(
                         title: Text(op.description),
-                        subtitle: Text(op.kind.name.replaceAll('transferIn', 'Transfer in').replaceAll('transferOut', 'Transfer out').replaceAll('topup', 'Top up').replaceAll('refund', 'Refund')),
+                        subtitle: Text(op.kind.name
+                            .replaceAll('transferIn', 'Transfer in')
+                            .replaceAll('transferOut', 'Transfer out')
+                            .replaceAll('topup', 'Top up')
+                            .replaceAll('refund', 'Refund')),
                         trailing: Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(formatAmount(op.amountMinor), style: const TextStyle(fontWeight: FontWeight.w600)),
+                            Text(formatAmount(op.amountMinor),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600)),
                             const SizedBox(height: 2),
-                            StatusPill(op.status, tone: op.status == 'Completed' ? PillTone.ok : PillTone.neutral),
+                            StatusPill(op.status,
+                                tone: op.status == 'Completed'
+                                    ? PillTone.ok
+                                    : PillTone.neutral),
                           ],
                         ),
                       ),
@@ -64,7 +78,8 @@ class ReportPage extends ConsumerWidget {
                 if (data.operations.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 16),
-                    child: Text('No account operations found. Use the wallet to start sending or topping up.'),
+                    child: Text(
+                        'No account operations found. Use the wallet to start sending or topping up.'),
                   ),
                 const SizedBox(height: 20),
                 AppButton(
@@ -92,7 +107,11 @@ class _ReportRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          SizedBox(width: 110, child: Text('$label:', style: const TextStyle(color: AppColors.ink400, fontSize: 13))),
+          SizedBox(
+              width: 110,
+              child: Text('$label:',
+                  style:
+                      const TextStyle(color: AppColors.ink400, fontSize: 13))),
           Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
         ],
       ),

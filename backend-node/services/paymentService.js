@@ -7,6 +7,8 @@ import {
   findUserByPhone,
   addOperation,
   isUserKycVerified,
+  checkTransferLimits,
+  recordTransfer,
 } from '../store.js';
 import { runFraudCheck } from '../middleware/fraudDetection.js';
 
@@ -26,6 +28,13 @@ export const initiatePayment = ({ merchantId, targetUserId, amountMinor }) => { 
     const err = new Error('Target user not found with this phone number');
     err.status = 404;
     err.code = 'USER_NOT_FOUND';
+    throw err;
+  }
+
+  if (targetUser.userId === merchant.userId) {
+    const err = new Error('You cannot make a payment to your own account.');
+    err.status = 400;
+    err.code = 'SELF_TRANSFER';
     throw err;
   }
 
@@ -105,6 +114,20 @@ export const confirmPayment = async ({ transactionId, verificationToken }) => {
     throw err;
   }
 
+  const limitCheck = checkTransferLimits(tx.targetUserId, tx.amount);
+  if (!limitCheck.allowed) {
+    updateTransactionStatus(transactionId, 'FAILED');
+    const err = new Error(
+      limitCheck.limitType === 'daily'
+        ? `Daily transfer limit exceeded. You can transfer up to ${(limitCheck.remaining / 100).toFixed(2)} EGP today.`
+        : `Monthly transfer limit exceeded. You can transfer up to ${(limitCheck.remaining / 100).toFixed(2)} EGP this month.`,
+    );
+    err.status = 403;
+    err.code = 'TRANSFER_LIMIT_EXCEEDED';
+    err.details = limitCheck;
+    throw err;
+  }
+
   const fraudResult = await runFraudCheck(tx);
   if (!fraudResult.passed) {
     updateTransactionStatus(transactionId, 'FAILED');
@@ -115,7 +138,7 @@ export const confirmPayment = async ({ transactionId, verificationToken }) => {
   }
 
   try {
-    atomicTransfer(tx.targetUserId, tx.merchantId, tx.amount);
+    await atomicTransfer(tx.targetUserId, tx.merchantId, tx.amount);
   } catch (transferErr) {
     updateTransactionStatus(transactionId, 'FAILED');
     const err = new Error(transferErr.message);
@@ -123,6 +146,8 @@ export const confirmPayment = async ({ transactionId, verificationToken }) => {
     err.code = 'TRANSFER_FAILED';
     throw err;
   }
+
+  recordTransfer(tx.targetUserId, tx.amount);
 
   const updatedTx = updateTransactionStatus(transactionId, 'SUCCESS');
 

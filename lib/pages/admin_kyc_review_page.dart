@@ -90,9 +90,9 @@ class _AdminKycReviewPageState extends ConsumerState<AdminKycReviewPage> {
                   const SizedBox(height: 12)
                 ],
                 if (list.isEmpty)
-                  Card(
+                  const Card(
                       child: Padding(
-                    padding: const EdgeInsets.all(28),
+                    padding: EdgeInsets.all(28),
                     child: Center(
                         child: Text(
                             'Nothing in the queue. Take a coffee break ☕',
@@ -120,11 +120,7 @@ class _AdminKycReviewPageState extends ConsumerState<AdminKycReviewPage> {
                                               fontWeight: FontWeight.w500)),
                                       const SizedBox(height: 2),
                                       Text(
-                                          list[i]
-                                                  .id
-                                                  .substring(0, 8)
-                                                  .padRight(8, '0') +
-                                              '…',
+                                          '${list[i].id.substring(0, 8).padRight(8, '0')}…',
                                           style: const TextStyle(
                                               color: AppColors.ink400,
                                               fontSize: 11)),
@@ -228,37 +224,42 @@ class _ReviewCard extends StatelessWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label,
           style: const TextStyle(
-              color: AppColors.ink400, fontSize: 11, fontWeight: FontWeight.w500)),
+              color: AppColors.ink400,
+              fontSize: 11,
+              fontWeight: FontWeight.w500)),
       const SizedBox(height: 6),
       ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          fullUrl,
-          height: 180,
-          width: double.infinity,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(
-            height: 180,
-            decoration: BoxDecoration(
-              color: AppColors.ink800,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Center(
-              child: Icon(Icons.broken_image_outlined,
-                  color: AppColors.ink500, size: 32),
+        child: AspectRatio(
+          aspectRatio: 4 / 3,
+          child: InteractiveViewer(
+            child: Image.network(
+              fullUrl,
+              width: double.infinity,
+              errorBuilder: (_, __, ___) => Container(
+                height: 180,
+                decoration: BoxDecoration(
+                  color: AppColors.ink800,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Center(
+                  child: Icon(Icons.broken_image_outlined,
+                      color: AppColors.ink500, size: 32),
+                ),
+              ),
+              loadingBuilder: (_, child, progress) {
+                if (progress == null) return child;
+                return Container(
+                  height: 180,
+                  decoration: BoxDecoration(
+                    color: AppColors.ink800,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Center(child: CircularProgressIndicator()),
+                );
+              },
             ),
           ),
-          loadingBuilder: (_, child, progress) {
-            if (progress == null) return child;
-            return Container(
-              height: 180,
-              decoration: BoxDecoration(
-                color: AppColors.ink800,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Center(child: CircularProgressIndicator()),
-            );
-          },
         ),
       ),
     ]);
@@ -272,39 +273,34 @@ class _ReviewCard extends StatelessWidget {
     return Card(
         child: Padding(
       padding: const EdgeInsets.all(16),
-      child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Reviewing ${selectedId.substring(0, 12)}…',
-                style: const TextStyle(
-                    color: AppColors.ink400, fontSize: 12)),
-            const SizedBox(height: 14),
-            _imageCard('ID Front', item.idFrontUrl),
-            if (item.idBackUrl != null) ...[
-              const SizedBox(height: 12),
-              _imageCard('ID Back', item.idBackUrl),
-            ],
-            const SizedBox(height: 12),
-            _imageCard('Selfie', item.selfieUrl),
-            const SizedBox(height: 16),
-            AppInput(
-              controller: reasonController,
-              label: 'Reason',
-              helper: 'Recorded in the audit trail.',
-            ),
-            const SizedBox(height: 14),
-            Wrap(spacing: 8, children: [
-              AppButton(
-                  label: 'Approve',
-                  onPressed: () => onAct(true),
-                  loading: busy),
-              AppButton(
-                  label: 'Reject',
-                  variant: AppButtonVariant.danger,
-                  onPressed: () => onAct(false),
-                  loading: busy),
-            ]),
-          ]),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text('Reviewing ${selectedId.substring(0, 12)}…',
+            style: const TextStyle(color: AppColors.ink400, fontSize: 12)),
+        const SizedBox(height: 14),
+        _imageCard('ID Front', item.idFrontUrl),
+        if (item.idBackUrl != null) ...[
+          const SizedBox(height: 12),
+          _imageCard('ID Back', item.idBackUrl),
+        ],
+        const SizedBox(height: 12),
+        _imageCard('Selfie', item.selfieUrl),
+        const SizedBox(height: 16),
+        AppInput(
+          controller: reasonController,
+          label: 'Reason',
+          helper: 'Recorded in the audit trail.',
+        ),
+        const SizedBox(height: 14),
+        Wrap(spacing: 8, children: [
+          AppButton(
+              label: 'Approve', onPressed: () => onAct(true), loading: busy),
+          AppButton(
+              label: 'Reject',
+              variant: AppButtonVariant.danger,
+              onPressed: () => onAct(false),
+              loading: busy),
+        ]),
+      ]),
     ));
   }
 }

@@ -5,6 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/api_models.dart';
+import '../services/auth_guards.dart';
 import '../services/discovery_service.dart';
 import '../state/providers.dart';
 import '../theme/app_theme.dart';
@@ -14,6 +15,7 @@ import '../widgets/app_button.dart';
 import '../widgets/app_input.dart';
 import '../widgets/inline_alert.dart';
 import '../widgets/status_pill.dart';
+import '../utils/self_transfer.dart';
 
 class MerchantQrPage extends ConsumerStatefulWidget {
   const MerchantQrPage({super.key});
@@ -75,33 +77,7 @@ class _MerchantQrPageState extends ConsumerState<MerchantQrPage>
   // -- QR tab logic --
 
   Future<void> _generate() async {
-    final isKycVerified =
-        await ref.read(isKycVerifiedProvider.future).catchError((_) => false);
-    if (!isKycVerified) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('KYC Verification Required'),
-            content: const Text(
-                'You must complete your identity verification before you can generate merchant QR codes.'),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel')),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  if (mounted) context.push('/kyc/status');
-                },
-                child: const Text('Go to KYC'),
-              ),
-            ],
-          ),
-        );
-      }
-      return;
-    }
+    if (!await AuthGuards.requireWalletAccess(context, ref)) return;
 
     final minor = parseMinor(_amount.text);
     if (minor == null || minor <= 0) return;
@@ -130,6 +106,13 @@ class _MerchantQrPageState extends ConsumerState<MerchantQrPage>
 
     if (phone.isEmpty) {
       setState(() => _fingerError = 'Enter the customer phone number');
+      return;
+    }
+    final selfAuth = ref.read(authControllerProvider).value;
+    if (isSelfTransfer(phone,
+        userId: selfAuth?.userId, phoneNumber: selfAuth?.phoneNumber)) {
+      setState(
+          () => _fingerError = "You can't make a payment to your own account.");
       return;
     }
     if (amountText.isEmpty) {
@@ -209,30 +192,33 @@ class _MerchantQrPageState extends ConsumerState<MerchantQrPage>
     final showFingerprint = role == Role.merchant || role == Role.admin;
 
     return Scaffold(
-      body: SafeArea(
-        child: showFingerprint
-            ? Column(
-                children: [
-                  TabBar(
+      appBar: AppBar(
+        forceMaterialTransparency: true,
+        centerTitle: true,
+        title: const Text("Receive money"),
+      ),
+      body: showFingerprint
+          ? Column(
+              children: [
+                TabBar(
+                  controller: _tabController,
+                  tabs: const [
+                    Tab(icon: Icon(Icons.qr_code), text: 'QR Code'),
+                    Tab(icon: Icon(Icons.fingerprint), text: 'Fingerprint'),
+                  ],
+                ),
+                Expanded(
+                  child: TabBarView(
                     controller: _tabController,
-                    tabs: const [
-                      Tab(icon: Icon(Icons.qr_code), text: 'QR Code'),
-                      Tab(icon: Icon(Icons.fingerprint), text: 'Fingerprint'),
+                    children: [
+                      _buildQrTab(),
+                      _buildFingerprintTab(),
                     ],
                   ),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildQrTab(),
-                        _buildFingerprintTab(),
-                      ],
-                    ),
-                  ),
-                ],
-              )
-            : _buildQrTab(),
-      ),
+                ),
+              ],
+            )
+          : _buildQrTab(),
     );
   }
 

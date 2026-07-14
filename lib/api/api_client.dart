@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// Thrown when an HTTP call fails with a structured error body.
 class ApiError implements Exception {
@@ -13,28 +12,17 @@ class ApiError implements Exception {
   String toString() => 'ApiError($status, $code): $message';
 }
 
-/// Keys used in flutter_secure_storage. Centralised so we can rotate later.
-abstract final class _Keys {
-  static const access = 'wallet.accessToken';
-  static const refresh = 'wallet.refreshToken';
-  static const role = 'wallet.role';
-  static const phoneNumber = 'wallet.phoneNumber';
-  static const userId = 'wallet.userId';
-  static const fullName = 'wallet.fullName';
-}
-
-/// Thin auth-token cache backed by the system Keychain / Android Keystore.
+/// In-memory auth-token cache. Data lives only for the current app session.
 /// One instance is wired into both the Dio interceptor and the auth state.
 class TokenStore {
-  TokenStore(this._storage);
-  final FlutterSecureStorage _storage;
+  final _data = <String, String>{};
 
-  Future<String?> getAccess() => _storage.read(key: _Keys.access);
-  Future<String?> getRefresh() => _storage.read(key: _Keys.refresh);
+  Future<String?> getAccess() async => _data['access'];
+  Future<String?> getRefresh() async => _data['refresh'];
 
   Future<void> setTokens(String access, String refresh) async {
-    await _storage.write(key: _Keys.access, value: access);
-    await _storage.write(key: _Keys.refresh, value: refresh);
+    _data['access'] = access;
+    _data['refresh'] = refresh;
   }
 
   Future<void> setSession({
@@ -44,31 +32,43 @@ class TokenStore {
     required String phoneNumber,
     required String userId,
     String fullName = '',
+    bool hasPin = false,
+    bool isKycVerified = false,
   }) async {
-    await _storage.write(key: _Keys.access, value: access);
-    await _storage.write(key: _Keys.refresh, value: refresh);
-    await _storage.write(key: _Keys.role, value: role);
-    await _storage.write(key: _Keys.phoneNumber, value: phoneNumber);
-    await _storage.write(key: _Keys.userId, value: userId);
-    await _storage.write(key: _Keys.fullName, value: fullName);
+    _data['access'] = access;
+    _data['refresh'] = refresh;
+    _data['role'] = role;
+    _data['phoneNumber'] = phoneNumber;
+    _data['userId'] = userId;
+    _data['fullName'] = fullName;
+    _data['hasPin'] = hasPin.toString();
+    _data['isKycVerified'] = isKycVerified.toString();
+  }
+
+  Future<bool> getHasPin() async => _data['hasPin'] == 'true';
+  Future<bool> getKycVerified() async => _data['isKycVerified'] == 'true';
+
+  Future<void> setHasPin(bool value) async {
+    _data['hasPin'] = value.toString();
+  }
+
+  Future<void> setKycVerified(bool value) async {
+    _data['isKycVerified'] = value.toString();
   }
 
   Future<Map<String, String?>> getSession() async => {
-        'access': await _storage.read(key: _Keys.access),
-        'refresh': await _storage.read(key: _Keys.refresh),
-        'role': await _storage.read(key: _Keys.role),
-        'phoneNumber': await _storage.read(key: _Keys.phoneNumber),
-        'userId': await _storage.read(key: _Keys.userId),
-        'fullName': await _storage.read(key: _Keys.fullName),
+        'access': _data['access'],
+        'refresh': _data['refresh'],
+        'role': _data['role'],
+        'phoneNumber': _data['phoneNumber'],
+        'userId': _data['userId'],
+        'fullName': _data['fullName'],
+        'hasPin': _data['hasPin'],
+        'isKycVerified': _data['isKycVerified'],
       };
 
   Future<void> clear() async {
-    await _storage.delete(key: _Keys.access);
-    await _storage.delete(key: _Keys.refresh);
-    await _storage.delete(key: _Keys.role);
-    await _storage.delete(key: _Keys.phoneNumber);
-    await _storage.delete(key: _Keys.userId);
-    await _storage.delete(key: _Keys.fullName);
+    _data.clear();
   }
 }
 

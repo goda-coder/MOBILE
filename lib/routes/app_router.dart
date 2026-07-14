@@ -1,27 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wallet/pages/kyc_status_page.dart';
 import 'package:wallet/pages/on_boarding_page.dart';
 
 import '../models/api_models.dart';
 import '../models/fraud_result.dart';
 import '../models/transfer_data.dart';
+import '../pages/account_setup_page.dart';
 import '../pages/admin_kyc_review_page.dart';
 import '../pages/chat_page.dart';
 import '../pages/enable_biometrics_page.dart';
 import '../pages/fingerprint_auth_page.dart';
-import '../pages/fraud_detection_guard_page.dart';
+import '../pages/transfer_confirmation_page.dart';
 import '../pages/fraud_high_risk_page.dart';
 import '../pages/kyc_liveness_page.dart';
-import '../pages/kyc_status_page.dart';
+
 import '../pages/kyc_submit_page.dart';
 import '../pages/login_page.dart';
 import '../pages/merchant_qr_page.dart';
 import '../pages/notifications_page.dart';
 import '../pages/payment_result_page.dart';
-import '../pages/pin_code_page.dart';
+import '../pages/pin_login_page.dart';
+import '../pages/change_password_page.dart';
+import '../pages/pin_setup_page.dart';
 import '../pages/profile_page.dart';
-import '../pages/recipient_confirmation_page.dart';
+import '../pages/reset_pin_page.dart';
 import '../pages/register_page.dart';
 import '../pages/report_page.dart';
 import '../pages/shell_page.dart';
@@ -38,6 +42,23 @@ const _public = {
   '/register',
   '/payment-success',
   '/payment-failure',
+  '/enable-biometrics',
+};
+
+/// Paths accessible when authenticated but account setup is incomplete.
+const _setupPaths = {
+  '/',
+  '/account-setup',
+  '/create-pin',
+  '/login-pin',
+  '/change-password',
+  '/reset-pin',
+  '/kyc',
+  '/kyc/submit',
+  '/kyc/liveness',
+  '/profile',
+  '/notifications',
+  '/chat',
 };
 
 /// Paths that require a particular role beyond authentication.
@@ -69,9 +90,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         final hasOnboarded = ref.read(hasOnboardedProvider);
         if (hasOnboarded) return '/login';
       }
-      // Authed + on /login or /register → redirect
+      // Not authed + other public routes are allowed
+      if (!isAuthed) return null;
+      // Authed + on /login or /register or /onboarding → redirect
       if (isAuthed && loc == '/login') return '/';
       if (isAuthed && loc == '/register') return '/';
+      if (isAuthed && loc == '/onboarding') return '/';
+      // Account setup guard: if setup is incomplete, only allow setup paths (admins bypass)
+      final ready = auth?.isAccountReadyForFeatures ?? false;
+      if (!ready && !_setupPaths.contains(loc) && !_public.contains(loc)) {
+        return '/';
+      }
       // Authed but wrong role
       if (isAuthed && !_isAllowed(loc, auth?.role)) return '/';
       return null;
@@ -102,21 +131,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (_, state) =>
               ChatPage(userId: state.uri.queryParameters['userId'])),
       GoRoute(
-          path: '/fraud-detection',
-          builder: (_, state) => FraudDetectionGuardPage(
-              data: state.extra as TransferData)),
+          path: '/transfer-confirmation',
+          builder: (_, state) =>
+              TransferConfirmationPage(data: state.extra as TransferData)),
       GoRoute(
           path: '/fraud-high-risk',
-          builder: (_, state) => FraudHighRiskPage(
-              result: state.extra as FraudCheckResult?)),
-      GoRoute(
-          path: '/recipient-confirmation',
-          builder: (_, state) => RecipientConfirmationPage(
-              data: state.extra as TransferData)),
-      GoRoute(
-          path: '/pin-code',
           builder: (_, state) =>
-              PinCodePage(data: state.extra as TransferData)),
+              FraudHighRiskPage(result: state.extra as FraudCheckResult?)),
+
+      // -- Account setup routes (accessible when auth but locked) --
+      GoRoute(
+          path: '/account-setup', builder: (_, __) => const AccountSetupPage()),
+      GoRoute(path: '/create-pin', builder: (_, __) => const PinSetupPage()),
+      GoRoute(path: '/login-pin', builder: (_, __) => const PinLoginPage()),
+
+      // KYC routes (top-level to be accessible during setup)
+      GoRoute(path: '/kyc', builder: (_, __) => const KycStatusPage()),
+      GoRoute(path: '/kyc/submit', builder: (_, __) => const KycSubmitPage()),
+      GoRoute(
+          path: '/kyc/liveness', builder: (_, __) => const KycLivenessPage()),
+
       StatefulShellRoute.indexedStack(
         builder: (_, __, navigationShell) =>
             ShellPage(navigationShell: navigationShell),
@@ -161,16 +195,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                   path: '/profile', builder: (_, __) => const ProfilePage()),
-              GoRoute(path: '/kyc', builder: (_, __) => const KycStatusPage()),
-              GoRoute(
-                  path: '/kyc/submit',
-                  builder: (_, __) => const KycSubmitPage()),
-              GoRoute(
-                  path: '/kyc/liveness',
-                  builder: (_, __) => const KycLivenessPage()),
               GoRoute(
                   path: '/notifications',
                   builder: (_, __) => const NotificationsPage()),
+              GoRoute(
+                  path: '/change-password',
+                  builder: (_, __) => const ChangePasswordPage()),
+              GoRoute(
+                  path: '/reset-pin', builder: (_, __) => const ResetPinPage()),
             ],
           ),
         ],

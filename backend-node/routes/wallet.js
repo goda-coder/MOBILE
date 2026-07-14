@@ -1,12 +1,30 @@
 import express from 'express';
-import { getWallet, addOperation, getWalletTransactions, getOperations, findUserByEmail, findUserByPhone, findUserByWalletId, creditWallet, getKycStatus } from '../store.js';
+import { getWallet, addOperation, getWalletTransactions, getOperations, findUserByEmail, findUserByPhone, findUserByWalletId, creditWallet, getKycStatus, getTransferLimits, checkTransferLimits, recordTransfer, atomicTransfer } from '../store.js';
 import { v4 as uuidv4 } from 'uuid';
 import { runFraudCheck } from '../middleware/fraudDetection.js';
-import { requireKyc } from '../middleware/requireKyc.js';
+import { requireAccountSetup } from '../middleware/requireAccountSetup.js';
 
 const router = express.Router();
 
-router.get('/summary', (req, res) => {
+router.get('/validate-recipient/:identifier', requireAccountSetup, (req, res) => {
+  const { identifier } = req.params;
+  const recipient = findUserByEmail(identifier) || findUserByPhone(identifier) || findUserByWalletId(identifier);
+  if (!recipient) {
+    return res.status(404).json({ code: 'RECIPIENT_NOT_FOUND', message: 'Recipient account not found' });
+  }
+  const kyc = getKycStatus(recipient.userId);
+  if (kyc.status !== 'Verified') {
+    return res.status(403).json({ code: 'RECIPIENT_KYC_NOT_VERIFIED', message: 'Recipient KYC not verified' });
+  }
+  return res.json({ fullName: recipient.fullName });
+});
+
+router.get('/transfer-limits', requireAccountSetup, (req, res) => {
+  const limits = getTransferLimits(req.user.userId);
+  return res.json(limits);
+});
+
+router.get('/summary', requireAccountSetup, (req, res) => {
   const wallet = getWallet(req.user.userId);
   if (!wallet) return res.status(404).json({ code: 'WALLET_NOT_FOUND', message: 'Wallet not found' });
   const kyc = getKycStatus(req.user.userId);
@@ -17,7 +35,7 @@ router.get('/summary', (req, res) => {
   });
 });
 
-router.get('/transactions', (req, res) => {
+router.get('/transactions', requireAccountSetup, (req, res) => {
   const wallet = getWallet(req.user.userId);
   if (!wallet) return res.status(404).json({ code: 'WALLET_NOT_FOUND', message: 'Wallet not found' });
   const transactions = getWalletTransactions(req.user.userId).map((tx) => ({
@@ -29,7 +47,7 @@ router.get('/transactions', (req, res) => {
   return res.json(transactions);
 });
 
-router.get('/report', (req, res) => {
+router.get('/report', requireAccountSetup, (req, res) => {
   const wallet = getWallet(req.user.userId);
   if (!wallet) return res.status(404).json({ code: 'WALLET_NOT_FOUND', message: 'Wallet not found' });
   const operations = getOperations(req.user.userId).map((op) => ({
@@ -41,7 +59,7 @@ router.get('/report', (req, res) => {
   return res.json({ wallet, operations });
 });
 
-router.get('/reports', (req, res) => {
+router.get('/reports', requireAccountSetup, (req, res) => {
   const wallet = getWallet(req.user.userId);
   if (!wallet) return res.status(404).json({ code: 'WALLET_NOT_FOUND', message: 'Wallet not found' });
   const operations = getOperations(req.user.userId).map((op) => ({
@@ -53,7 +71,7 @@ router.get('/reports', (req, res) => {
   return res.json({ wallet, operations });
 });
 
-router.post('/transfer', requireKyc, async (req, res) => {
+router.post('/transfer', requireAccountSetup, async (req, res) => {
   const { recipientIdentifier, amountMinor, currency, reference, description } = req.body;
   if (!recipientIdentifier || !amountMinor || !reference) {
     return res.status(400).json({ code: 'INVALID_INPUT', message: 'recipientIdentifier, amountMinor and reference are required' });
@@ -74,6 +92,24 @@ router.post('/transfer', requireKyc, async (req, res) => {
     return res.status(404).json({ code: 'RECIPIENT_WALLET_NOT_FOUND', message: 'Recipient wallet not found' });
   }
 
+  if (recipient.userId === req.user.userId) {
+    return res.status(400).json({
+      code: 'SELF_TRANSFER',
+      message: 'You cannot transfer to your own account.',
+    });
+  }
+
+  const limitCheck = checkTransferLimits(req.user.userId, amountMinor);
+  if (!limitCheck.allowed) {
+    return res.status(403).json({
+      code: 'TRANSFER_LIMIT_EXCEEDED',
+      message: limitCheck.limitType === 'daily'
+        ? `Daily transfer limit exceeded. You can transfer up to ${(limitCheck.remaining / 100).toFixed(2)} EGP today.`
+        : `Monthly transfer limit exceeded. You can transfer up to ${(limitCheck.remaining / 100).toFixed(2)} EGP this month.`,
+      details: limitCheck,
+    });
+  }
+
   const fraudResult = await runFraudCheck({
     senderUserId: req.user.userId,
     recipientUserId: recipient.userId,
@@ -89,8 +125,12 @@ router.post('/transfer', requireKyc, async (req, res) => {
     });
   }
 
-  wallet.balanceMinor -= amountMinor;
-  recipientWallet.balanceMinor += amountMinor;
+  try {
+    await atomicTransfer(req.user.userId, recipient.userId, amountMinor);
+  } catch (transferErr) {
+    return res.status(400).json({ code: 'TRANSFER_FAILED', message: transferErr.message });
+  }
+  recordTransfer(req.user.userId, amountMinor);
 
   addOperation({
     userId: req.user.userId,
