@@ -432,6 +432,7 @@ export {
   getChatMessages,
   getChatConversations,
   createKycRequest,
+  getLatestKycRequest,
   getKycStatus,
   isUserKycVerified,
   getPendingKyc,
